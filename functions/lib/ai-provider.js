@@ -19,7 +19,7 @@ import Anthropic from "@anthropic-ai/sdk";
 // el historial entre preguntas, solo la respuesta final en texto. Por eso ambos proveedores
 // pueden compartir la misma forma de historial sin perder nada.
 
-const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 // Haiku 4.5 es el modelo de Anthropic en el mismo escalón de precio/velocidad que Gemini
 // Flash — el que tiene sentido para un asistente de function-calling de este tamaño.
 const DEFAULT_CLAUDE_MODEL = "claude-haiku-4-5-20251001";
