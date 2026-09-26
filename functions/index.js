@@ -5,11 +5,12 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { NAVESPACE_TOOLS } from "./lib/navespace-tools.js";
 import { TALLER_TOOLS } from "./lib/taller-tools.js";
 
-// Servidor MCP de naveSpace — expone datos y ACCIONES EN VIVO sobre la flota (naveSpace +
-// el taller que el panel admin orquesta) como herramientas MCP, para cualquier cliente MCP
-// (Claude Desktop/Code, u otro) y como base de los asistentes embebidos (ask-admin.js y
-// ask-taller.js, que reusan los mismos catálogos sin pasar por HTTP/MCP — este archivo es
-// la interfaz MCP "pública", los ask-* son consumidores directos en el mismo proceso).
+// Servidor MCP de naveSpace — SOLO LECTURA para clientes externos (Claude Desktop/Code u
+// otro). Las tools de escritura (crear/borrar/enviar a taller/cobros) NO se exponen acá:
+// solo viven en ask-admin.js y ask-taller.js, donde el SYSTEM_PROMPT pide confirmación
+// antes de ejecutar. Un cliente MCP directo no tiene esa red de seguridad, así que el
+// catálogo público se filtra por denylist: si algún día se agrega una tool de escritura
+// nueva, hay que sumarla a WRITE_TOOL_NAMES o quedará expuesta.
 //
 // Vive en su proyecto Firebase propio (`spacecraft-mcp`), separado de los frontends: el
 // panel admin y la app del taller son clientes HTTP delgados (sus widgets llaman a askAdmin
@@ -18,17 +19,11 @@ import { TALLER_TOOLS } from "./lib/taller-tools.js";
 // tools de lectura copiadas en vez de reusadas) muere acá: taller-tools.js reusa por
 // referencia las tools de lectura de navespace-tools.js (mismo backend/endpoint).
 //
-// Alcance: TODOS los endpoints que consumen los frontends, lectura y escritura, salvo
-// aprobar un presupuesto de taller (cobra una tarjeta real contra BankIn — queda fuera a
-// propósito, solo disponible desde el panel admin).
-//
-// IMPORTANTE sobre confirmación: acá, a nivel de tool MCP, no hay ningún gating — cualquier
-// cliente conectado puede llamar directo a delete_spacecraft, send_spacecraft_to_taller, etc.
-// La única capa que pide confirmación antes de ejecutar acciones destructivas/con impacto
-// vive en los SYSTEM_PROMPT de ask-admin.js / ask-taller.js, no acá. Un cliente MCP que
-// llegue por otro lado (Claude Desktop, por ejemplo) depende de su propio mecanismo de
-// confirmación de tool calls — las `description` de cada tool ya avisan cuáles requieren
-// confirmación humana antes de llamarse.
+// Alcance del MCP público: solo lectura (ver WRITE_TOOL_NAMES). La escritura vive solo en
+// los chats embebidos, donde el SYSTEM_PROMPT pide confirmación antes de ejecutar —
+// precisamente porque un cliente MCP directo no tiene esa red de seguridad. Aprobar un
+// presupuesto de taller (cobra tarjeta real contra BankIn) no existe en ningún catálogo,
+// solo en el panel admin.
 //
 // Decisión de diseño: stateless. El SDK oficial de MCP soporta explícitamente un modo sin
 // sesión para Streamable HTTP (sessionIdGenerator: undefined) — cada invocación crea su
@@ -47,6 +42,30 @@ function errorResult(err) {
   };
 }
 
+// Denylist de escritura para el MCP público (ver comentario arriba). Los ask-* usan los
+// catálogos completos sin filtrar.
+const WRITE_TOOL_NAMES = new Set([
+  // naveSpace (admin)
+  "create_spacecraft",
+  "update_spacecraft",
+  "delete_spacecraft",
+  "save_museum_schedule_day",
+  "create_theater_event",
+  "update_theater_event",
+  "delete_theater_event",
+  "send_spacecraft_to_taller",
+  "confirm_ship_operational",
+  "reject_budget",
+  "receive_ship_from_taller",
+  // taller
+  "confirm_repair_receipt",
+  "advance_repair_status",
+  "create_spare_part",
+  "update_spare_part",
+  "deactivate_spare_part",
+  "create_budget",
+]);
+
 // TALLER_TOOLS reusa por referencia varias tools de NAVESPACE_TOOLS (mismo objeto, ver
 // taller-tools.js) — se deduplica por `name` para no registrar la misma tool dos veces en
 // un mismo McpServer.
@@ -56,25 +75,25 @@ for (const tool of TALLER_TOOLS) {
   if (!navespaceNames.has(tool.name)) ALL_TOOLS.push(tool);
 }
 
+// Catálogo público = todo menos escritura. Exportado para testear el filtro sin levantar
+// el servidor (node: importar index.js y revisar PUBLIC_TOOLS).
+export const PUBLIC_TOOLS = ALL_TOOLS.filter((t) => !WRITE_TOOL_NAMES.has(t.name));
+
 function buildServer() {
   const server = new McpServer(
-    { name: "spacecraft-mcp", version: "0.1.0" },
+    { name: "spacecraft-mcp", version: "0.2.0" },
     {
       instructions:
-        "Herramientas de lectura Y ESCRITURA sobre datos en vivo de naveSpace-admin y del " +
-        "taller de reparación (flota, museo, teatro, ciclo de taller completo incluyendo " +
-        "stock de repuestos y presupuestos). No incluye aprobar un presupuesto de taller " +
-        "(cobra una tarjeta real contra BankIn, queda fuera a propósito). Antes de llamar a " +
-        "una tool cuya description indique que requiere confirmación (acciones destructivas " +
-        "o con impacto real: borrar una nave, borrar una función de teatro, enviar una nave " +
-        "al taller), mostrale al usuario qué va a pasar y pedile confirmación explícita " +
-        "antes de ejecutarla — no lo asumas. Los backends corren en Render free tier: la " +
-        "primera llamada tras un rato de inactividad puede tardar hasta ~60s (cold start) " +
-        "antes de responder.",
+        "Herramientas de SOLO LECTURA sobre datos en vivo de naveSpace-admin y del " +
+        "taller de reparación (flota, museo, teatro, reparaciones, stock de repuestos y " +
+        "presupuestos). No hay escritura por acá: crear, editar, borrar o enviar a taller " +
+        "solo existe en los chats embebidos (que piden confirmación antes de ejecutar). " +
+        "Los backends corren en Render free tier: la primera llamada tras un rato de " +
+        "inactividad puede tardar hasta ~60s (cold start) antes de responder.",
     }
   );
 
-  for (const tool of ALL_TOOLS) {
+  for (const tool of PUBLIC_TOOLS) {
     server.registerTool(
       tool.name,
       { title: tool.title, description: tool.description, inputSchema: tool.zodShape },

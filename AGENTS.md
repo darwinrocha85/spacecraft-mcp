@@ -4,7 +4,9 @@
 > Stack: Cloud Functions for Firebase 2nd gen (Node 20, ESM) — servidor MCP stateless + backends de chat admin/taller con function-calling (Gemini/Claude según `AI_PROVIDER`).
 
 ## Qué vive acá
-- `functions/index.js` → `mcp` (StreamableHTTP stateless, catálogo único: NAVESPACE + TALLER deduplicadas).
+- `functions/index.js` → `mcp` (StreamableHTTP stateless, SOLO LECTURA: 20 tools; la
+  escritura se filtra por denylist `WRITE_TOOL_NAMES`) + `askAdmin` y `askTaller`
+  (catálogos completos, con confirmación en el SYSTEM_PROMPT).
 - `functions/ask-admin.js` → `askAdmin` (alcance dueño de flota; aprobar presupuestos queda fuera a propósito).
 - `functions/ask-taller.js` → `askTaller` (alcance staff de taller; sin acciones destructivas).
 - `functions/lib/` es la ÚNICA copia: `navespace-tools`, `taller-tools` (reusa por referencia, no duplica), `ai-provider`, `chat-utils`, `damage-matcher`.
