@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SchemaType } from "@google/generative-ai";
+import { normalize } from "./damage-matcher.js";
 
 // Módulo compartido: la ÚNICA fuente de verdad de las herramientas de naveSpace-admin.
 // Tanto el servidor MCP (index.js, protocolo MCP para clientes externos como Claude
@@ -100,6 +101,43 @@ export async function callNaveSpace(path, opts = {}) {
 
 export async function callTaller(path, opts = {}) {
   return callApi(TALLER_API_BASE, path, { ...opts, coldStartLabel: "El taller" });
+}
+
+// Normalización de daños para send_spacecraft_to_taller (bug real 2026-09-28): el
+// backend Java deserializa `category` como enum por NOMBRE (PROPULSION, no la etiqueta
+// "Propulsion") y exige el subtipo exacto — un 400 si el modelo manda la etiqueta o
+// cambia mayúsculas/acentos. Se acepta clave o etiqueta, en cualquier caja y con o sin
+// acentos, y se devuelve la forma exacta que el backend exige. Si no matchea, error con
+// la lista REAL (para que el modelo la retransmita en vez de inventar una).
+export async function normalizeDamage(categoryInput, subtypeInput) {
+  const catalog = await callTaller("/catalog/damages");
+  const cn = normalize(categoryInput);
+  let foundKey = null;
+  for (const [key, entry] of Object.entries(catalog || {})) {
+    if (normalize(key) === cn || normalize(entry?.label) === cn) {
+      foundKey = key;
+      break;
+    }
+  }
+  if (!foundKey) {
+    return {
+      error:
+        `"${categoryInput}" no es una categoría válida. Válidas: ` +
+        Object.entries(catalog || {})
+          .map(([k, e]) => `${k} (${e?.label})`)
+          .join(", "),
+    };
+  }
+  const subtypes = catalog[foundKey]?.subtypes || [];
+  const foundSub = subtypes.find((s) => normalize(s) === normalize(subtypeInput));
+  if (!foundSub) {
+    return {
+      error:
+        `"${subtypeInput}" no es un subtipo válido de ${foundKey}. Válidos: ` +
+        subtypes.join(", "),
+    };
+  }
+  return { category: foundKey, subtype: foundSub };
 }
 
 const emptyGeminiParams = { type: SchemaType.OBJECT, properties: {}, required: [] };
@@ -607,7 +645,10 @@ export const NAVESPACE_TOOLS = [
       "get_damage_catalog for valid categories/subtypes and get_repair_impact " +
       "to know how many tickets/schedules would be affected, 2) clearly explain the " +
       "impact to the user and ask for explicit confirmation in chat, 3) only on a later " +
-      "turn, if the user confirms, call this tool.",
+      "turn, if the user confirms, call this tool. " +
+      "Category accepts key or label in any case/accents (e.g. Propulsion, PROPULSION) " +
+      "and subtype likewise — the server normalizes them to the exact backend form, " +
+      "so pass through what the user said instead of refusing near-matches.",
     zodShape: {
       spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID to send"),
       damages: z
@@ -640,9 +681,18 @@ export const NAVESPACE_TOOLS = [
       required: ["spacecraftId", "damages"],
     },
     async handler({ spacecraftId, damages }) {
+      // Todo o nada: si un daño no normaliza, no se envía ninguno (el error trae la
+      // lista real para que el modelo la muestre en vez de inventar).
+      const normalized = [];
+      for (const d of damages || []) {
+        const n = await normalizeDamage(d?.category, d?.subtype);
+        if (n.error) return { error: n.error };
+        normalized.push({ category: n.category, subtype: n.subtype });
+      }
+      if (!normalized.length) return { error: "Indicá al menos un daño (categoría y subtipo)." };
       return callNaveSpace(`/spacecrafts/${spacecraftId}/repairs`, {
         method: "POST",
-        body: { damages },
+        body: { damages: normalized },
       });
     },
   },
