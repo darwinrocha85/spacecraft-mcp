@@ -37,7 +37,7 @@ function textResult(data) {
 function errorResult(err) {
   console.error("spacecraft-mcp tool error:", err);
   return {
-    content: [{ type: "text", text: `Error consultando naveSpace: ${err.message}` }],
+    content: [{ type: "text", text: `Error querying naveSpace: ${err.message}` }],
     isError: true,
   };
 }
@@ -84,12 +84,12 @@ function buildServer() {
     { name: "spacecraft-mcp", version: "0.2.0" },
     {
       instructions:
-        "Herramientas de SOLO LECTURA sobre datos en vivo de naveSpace-admin y del " +
-        "taller de reparación (flota, museo, teatro, reparaciones, stock de repuestos y " +
-        "presupuestos). No hay escritura por acá: crear, editar, borrar o enviar a taller " +
-        "solo existe en los chats embebidos (que piden confirmación antes de ejecutar). " +
-        "Los backends corren en Render free tier: la primera llamada tras un rato de " +
-        "inactividad puede tardar hasta ~60s (cold start) antes de responder.",
+        "READ-ONLY tools over live naveSpace-admin and repair shop data " +
+        "(fleet, museum, theater, repairs, spare parts stock and " +
+        "budgets). No writes here: create, edit, delete or send to shop " +
+        "only exist in the embedded chats (which ask for confirmation before running). " +
+        "Backends run on Render free tier: first call after idle " +
+        "may take up to about 60s (cold start) before responding.",
     }
   );
 
@@ -130,7 +130,7 @@ export const mcp = onRequest(
           jsonrpc: "2.0",
           error: {
             code: -32000,
-            message: "Method not allowed. Este servidor MCP es stateless: usá POST.",
+            message: "Method not allowed. This MCP server is stateless: use POST.",
           },
           id: null,
         });

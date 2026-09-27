@@ -2,8 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import Anthropic from "@anthropic-ai/sdk";
 
 // Capa de abstracción para que un asistente de function-calling (ask-admin.js, ask-taller.js,
-// y los que se sumen) pueda correr sobre Gemini o sobre Claude cambiando UNA variable de
-// entorno (AI_PROVIDER=gemini|claude), sin duplicar el loop de tool-calling por proveedor.
+// y los que se sumen) pueda correr sobre Gemini, Claude o Groq cambiando UNA variable de
+// entorno (AI_PROVIDER=gemini|claude|groq), sin duplicar el loop de tool-calling por proveedor.
 //
 // Decisión clave que simplifica todo esto: los `geminiParameters` que ya se escriben a mano
 // para cada tool (en navespace-tools.js, taller-tools.js, etc.) SON JSON Schema válido tal
@@ -23,11 +23,20 @@ const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 // Haiku 4.5 es el modelo de Anthropic en el mismo escalón de precio/velocidad que Gemini
 // Flash — el que tiene sentido para un asistente de function-calling de este tamaño.
 const DEFAULT_CLAUDE_MODEL = "claude-haiku-4-5-20251001";
+// Provider principal desde 2026-09-27: Groq (Qwen 3.8 27B) con tool calling, endpoint
+// OpenAI-compatible. Más cuota gratis que Gemini para este demo y más rápido que Haiku.
+// (Antes fue Mistral: su API resultó paga sin trial útil — cuenta eliminada. Y el default
+// anterior llama-3.3-70b-versatile Groq lo dio de baja — su catálogo rota seguido, por eso
+// existe GROQ_MODEL para pisarlo sin tocar código.)
+const DEFAULT_GROQ_MODEL = "qwen/qwen3.8-27b";
+const GROQ_API_BASE = process.env.GROQ_API_BASE || "https://api.groq.com/openai/v1";
 
 /**
  * Qué proveedor usar. AI_PROVIDER se lee una vez por invocación de la Cloud Function (no hay
  * caché entre requests en Cloud Functions Gen 2 salvo que la instancia se reuse, y aunque se
  * reuse esto es tan barato que da igual releerlo siempre).
+ *
+ * Valores: "gemini" | "claude" | "groq" (principal desde 2026-09-27).
  *
  * Ahorro de tokens (2026-09-21): el prefijo estático de cada request (system prompt + catálogo
  * de tools, idéntico en cada llamada) va marcado con breakpoints de prompt caching en Claude
@@ -38,9 +47,9 @@ const DEFAULT_CLAUDE_MODEL = "claude-haiku-4-5-20251001";
  */
 export function resolveProvider() {
   const raw = (process.env.AI_PROVIDER || "gemini").trim().toLowerCase();
-  if (raw !== "gemini" && raw !== "claude") {
+  if (raw !== "gemini" && raw !== "claude" && raw !== "groq") {
     throw Object.assign(
-      new Error(`AI_PROVIDER inválido: "${raw}". Los valores válidos son "gemini" o "claude".`),
+      new Error(`AI_PROVIDER inválido: "${raw}". Los valores válidos son "gemini", "claude" o "groq".`),
       { isConfigError: true }
     );
   }
@@ -219,6 +228,83 @@ async function runClaude({ apiKey, model, systemPrompt, tools, history, question
   };
 }
 
+async function runGroq({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel }) {
+  // Groq expone chat completions OpenAI-compatible con function calling: se usa fetch
+  // directo (sin SDK nuevo) contra /chat/completions. Los `geminiParameters` son JSON
+  // Schema válido y sirven tal cual como `parameters` de cada function.
+  const groqTools = tools.map((t) => ({
+    type: "function",
+    function: { name: t.name, description: t.description, parameters: t.geminiParameters },
+  }));
+
+  const messages = [
+    { role: "system", content: systemPrompt },
+    ...history.map((h) => ({ role: h.role, content: h.text })),
+    { role: "user", content: question },
+  ];
+
+  async function chat(body) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 90_000);
+    try {
+      const res = await fetch(`${GROQ_API_BASE}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const detail = data?.error?.message || res.statusText;
+        const err = new Error(`Groq respondió ${res.status}: ${detail}`);
+        err.status = res.status;
+        throw err;
+      }
+      return data;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  let data;
+  let rounds = 0;
+  while (true) {
+    data = await chat({
+      model,
+      messages,
+      tools: groqTools,
+      tool_choice: "auto",
+      temperature,
+      max_tokens: maxOutputTokens,
+    });
+    const msg = data?.choices?.[0]?.message;
+    if (!msg) throw new Error("Groq devolvió una respuesta vacía.");
+    const toolCalls = msg.tool_calls || [];
+    if (msg.finish_reason !== "tool_calls" || toolCalls.length === 0 || rounds >= maxRounds) break;
+
+    messages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
+    for (const call of toolCalls) {
+      let args = {};
+      try {
+        args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};
+      } catch {
+        args = {};
+      }
+      const result = await runToolCall(tools, call.function?.name, args, sideChannel);
+      messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+    }
+    rounds++;
+  }
+
+  const finalMsg = data?.choices?.[0]?.message;
+  const text = ((finalMsg?.content || "")).trim();
+  return {
+    answer: text || "No pude obtener esa información ahora mismo.",
+    model,
+    usage: data?.usage || undefined,
+  };
+}
+
 /**
  * Clasifica un error del SDK del proveedor como "cuota agotada" (429) de forma normalizada,
  * para que el caller (ask-admin.js, ask-taller.js) responda con el mismo mensaje amigable sin
@@ -251,6 +337,29 @@ export async function runAssistant({
   // corrida en este turno tiene `structuredType`, y se adjunta al resultado final acá abajo.
   // Vive solo durante esta llamada a runAssistant (no hay estado global entre requests).
   const sideChannel = {};
+
+  if (provider === "groq") {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      return {
+        mock: true,
+        provider,
+        answer:
+          "[mock sin GROQ_API_KEY, AI_PROVIDER=groq] Configura GROQ_API_KEY en " +
+          "esta Function para respuesta real. Pregunta recibida: " +
+          question.slice(0, 120),
+      };
+    }
+    const model = process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL;
+    try {
+      const result = await runGroq({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel });
+      return { ...result, provider, structured: sideChannel.structured };
+    } catch (err) {
+      err.isQuotaError = classifyProviderError(err);
+      err.provider = provider;
+      throw err;
+    }
+  }
 
   if (provider === "claude") {
     const apiKey = process.env.ANTHROPIC_API_KEY;

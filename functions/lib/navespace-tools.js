@@ -122,51 +122,51 @@ function buildSpacecraftPayload(input) {
 }
 
 const spacecraftZodFields = {
-  name: z.string().min(1).describe("Nombre de la nave"),
-  franchise: z.string().min(1).describe("Franquicia (ej. Star Wars)"),
-  crewCapacity: z.coerce.number().int().nonnegative().optional().describe("Capacidad de tripulación"),
-  speed: z.coerce.number().nonnegative().optional().describe("Velocidad"),
-  spacecraftType: z.string().optional().describe("Tipo de nave (ej. Carguero)"),
-  isArmed: z.boolean().optional().describe("¿Está armada?"),
-  isMuseum: z.boolean().optional().describe("¿Es museo?"),
-  isTheater: z.boolean().optional().describe("¿Es teatro?"),
+  name: z.string().min(1).describe("Spacecraft name"),
+  franchise: z.string().min(1).describe("Franchise (e.g. Star Wars)"),
+  crewCapacity: z.coerce.number().int().nonnegative().optional().describe("Crew capacity"),
+  speed: z.coerce.number().nonnegative().optional().describe("Speed"),
+  spacecraftType: z.string().optional().describe("Spacecraft type (e.g. Freighter)"),
+  isArmed: z.boolean().optional().describe("Is it armed?"),
+  isMuseum: z.boolean().optional().describe("Is it a museum?"),
+  isTheater: z.boolean().optional().describe("Is it a theater?"),
   museumCapacity: z.coerce
     .number()
     .int()
     .positive()
     .optional()
-    .describe("Capacidad del museo (obligatoria y > 0 si isMuseum es true)"),
+    .describe("Museum capacity (required and over 0 if isMuseum is true)"),
   ticketPrice: z.coerce
     .number()
     .nonnegative()
     .optional()
-    .describe("Precio de entrada en euros (si se omite, el backend usa 25.00 € por defecto)"),
+    .describe("Ticket price in euros (backend defaults to 25.00 euros if omitted)"),
 };
 
 const spacecraftGeminiProperties = {
-  name: { type: SchemaType.STRING, description: "Nombre de la nave" },
-  franchise: { type: SchemaType.STRING, description: "Franquicia (ej. Star Wars)" },
-  crewCapacity: { type: SchemaType.NUMBER, description: "Capacidad de tripulación" },
-  speed: { type: SchemaType.NUMBER, description: "Velocidad" },
-  spacecraftType: { type: SchemaType.STRING, description: "Tipo de nave (ej. Carguero)" },
-  isArmed: { type: SchemaType.BOOLEAN, description: "¿Está armada?" },
-  isMuseum: { type: SchemaType.BOOLEAN, description: "¿Es museo?" },
-  isTheater: { type: SchemaType.BOOLEAN, description: "¿Es teatro?" },
+  name: { type: SchemaType.STRING, description: "Spacecraft name" },
+  franchise: { type: SchemaType.STRING, description: "Franchise (e.g. Star Wars)" },
+  crewCapacity: { type: SchemaType.NUMBER, description: "Crew capacity" },
+  speed: { type: SchemaType.NUMBER, description: "Speed" },
+  spacecraftType: { type: SchemaType.STRING, description: "Spacecraft type (e.g. Freighter)" },
+  isArmed: { type: SchemaType.BOOLEAN, description: "Is it armed?" },
+  isMuseum: { type: SchemaType.BOOLEAN, description: "Is it a museum?" },
+  isTheater: { type: SchemaType.BOOLEAN, description: "Is it a theater?" },
   museumCapacity: {
     type: SchemaType.NUMBER,
-    description: "Capacidad del museo (obligatoria y > 0 si isMuseum es true)",
+    description: "Museum capacity (required and over 0 if isMuseum is true)",
   },
   ticketPrice: {
     type: SchemaType.NUMBER,
-    description: "Precio de entrada en euros (si se omite, el backend usa 25.00 € por defecto)",
+    description: "Ticket price in euros (backend defaults to 25.00 euros if omitted)",
   },
 };
 
 const theaterEventZodFields = {
-  eventType: z.enum(["MUSICA", "ARTES", "LIBRE"]).describe("Tipo de función"),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD").describe("Fecha de inicio"),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD").describe("Fecha de fin"),
-  time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Formato esperado: HH:MM").describe("Hora de la función"),
+  eventType: z.enum(["MUSICA", "ARTES", "LIBRE"]).describe("Show type"),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD").describe("Start date"),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD").describe("End date"),
+  time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Formato esperado: HH:MM").describe("Show time"),
 };
 
 const theaterEventGeminiProperties = {
@@ -174,21 +174,21 @@ const theaterEventGeminiProperties = {
     type: SchemaType.STRING,
     format: "enum",
     enum: ["MUSICA", "ARTES", "LIBRE"],
-    description: "Tipo de función",
+    description: "Show type",
   },
-  startDate: { type: SchemaType.STRING, description: "Fecha de inicio, formato YYYY-MM-DD" },
-  endDate: { type: SchemaType.STRING, description: "Fecha de fin, formato YYYY-MM-DD" },
-  time: { type: SchemaType.STRING, description: "Hora de la función, formato HH:MM" },
+  startDate: { type: SchemaType.STRING, description: "Start date, YYYY-MM-DD format" },
+  endDate: { type: SchemaType.STRING, description: "End date, YYYY-MM-DD format" },
+  time: { type: SchemaType.STRING, description: "Show time, HH:MM format" },
 };
 
 export const NAVESPACE_TOOLS = [
   // ============================== LECTURA — Flota ==============================
   {
     name: "list_spacecrafts",
-    title: "Listar flota",
+    title: "List fleet",
     description:
-      "Lista todas las naves de la flota con su nombre, estado (OPERATIVA/EN_TALLER) y " +
-      "qué recintos tiene habilitados (museo, teatro, ninguno).",
+      "Lists all fleet spacecraft with name, status (OPERATIVA/EN_TALLER) and " +
+      "enabled venues (museum, theater, none).",
     zodShape: {},
     geminiParameters: emptyGeminiParams,
     async handler() {
@@ -197,14 +197,14 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_spacecraft",
-    title: "Detalle de una nave",
-    description: "Detalle completo de una nave puntual por su ID (todos sus campos).",
+    title: "Spacecraft detail",
+    description: "Full detail for one spacecraft by ID (all fields).",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" } },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" } },
       required: ["spacecraftId"],
     },
     async handler({ spacecraftId }) {
@@ -213,16 +213,16 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "list_venues",
-    title: "Listar recintos",
+    title: "List venues",
     description:
-      "Lista los recintos habilitados de la flota (museos y/o teatros). El parámetro type " +
-      "es opcional; sin filtro trae todos.",
+      "Lists enabled fleet venues (museums and/or theaters). The type param " +
+      "is optional; without a filter it returns all.",
     zodShape: {
-      type: z.string().optional().describe("Filtro opcional de tipo de recinto"),
+      type: z.string().optional().describe("Optional venue type filter"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { type: { type: SchemaType.STRING, description: "Filtro opcional de tipo de recinto" } },
+      properties: { type: { type: SchemaType.STRING, description: "Optional venue type filter" } },
       required: [],
     },
     async handler({ type } = {}) {
@@ -232,10 +232,10 @@ export const NAVESPACE_TOOLS = [
   // ============================== ESCRITURA — Flota ==============================
   {
     name: "create_spacecraft",
-    title: "Registrar nueva nave",
+    title: "Register new spacecraft",
     description:
-      "Da de alta una nueva nave en la flota. Sin advertencia asociada — se puede ejecutar " +
-      "directo, sin pedir confirmación previa.",
+      "Registers a new spacecraft in the fleet. No warning attached — can run " +
+      "directly, without asking for prior confirmation.",
     zodShape: spacecraftZodFields,
     geminiParameters: {
       type: SchemaType.OBJECT,
@@ -248,15 +248,15 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "update_spacecraft",
-    title: "Editar una nave",
+    title: "Edit spacecraft",
     description:
-      "Edita los datos de una nave existente (reemplaza todos sus campos editables). No se " +
-      "puede editar una nave que está EN_TALLER — el backend lo rechaza. Sin advertencia " +
-      "asociada — se puede ejecutar directo.",
-    zodShape: { spacecraftId: z.coerce.number().int().positive().describe("ID de la nave a editar"), ...spacecraftZodFields },
+      "Edits an existing spacecraft (replaces all its editable fields). A " +
+      "spacecraft in EN_TALLER cannot be edited — the backend rejects it. No warning " +
+      "attached — can run directly.",
+    zodShape: { spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID to edit"), ...spacecraftZodFields },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave a editar" }, ...spacecraftGeminiProperties },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID to edit" }, ...spacecraftGeminiProperties },
       required: ["spacecraftId", "name", "franchise"],
     },
     async handler({ spacecraftId, ...input }) {
@@ -268,18 +268,18 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "delete_spacecraft",
-    title: "Eliminar una nave",
+    title: "Delete spacecraft",
     description:
-      "Elimina una nave de la flota de forma PERMANENTE. Acción destructiva e irreversible: " +
-      "SIEMPRE hay que explicarle al usuario qué se va a borrar y pedirle confirmación " +
-      "explícita en el chat antes de llamar a esta tool; solo ejecutarla en un turno " +
-      "posterior si el usuario confirma con claridad.",
+      "Deletes a spacecraft from the fleet PERMANENTLY. Destructive and irreversible: " +
+      "ALWAYS explain to the user what will be deleted and ask for explicit " +
+      "confirmation in chat before calling this tool; only run it on a later " +
+      "turn if the user clearly confirms.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave a eliminar"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID to delete"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave a eliminar" } },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID to delete" } },
       required: ["spacecraftId"],
     },
     async handler({ spacecraftId }) {
@@ -290,10 +290,11 @@ export const NAVESPACE_TOOLS = [
   // ============================== LECTURA — Dashboard / entradas ==============================
   {
     name: "get_fleet_overview",
-    title: "Resumen general de la flota",
+    title: "Fleet overview",
     description:
-      "Dashboard general de naveSpace: ingresos (museo/teatro/total), ocupación de HOY " +
-      "(museo y teatro), conteo de naves por estado, y el top 5 de naves por ingresos.",
+      "General naveSpace dashboard: revenue (museum/theater/total), TODAY " +
+      "occupancy (museum and theater), spacecraft count by status, and top 5 " +
+      "spacecraft by revenue.",
     zodShape: {},
     geminiParameters: emptyGeminiParams,
     async handler() {
@@ -302,17 +303,17 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_spacecraft_dashboard",
-    title: "Dashboard de una nave puntual",
+    title: "Single spacecraft dashboard",
     description:
-      "Mismos KPIs que el resumen general (ingresos, ocupación de hoy) acotados a una " +
-      "nave, más un resumen de su historial de visitas al taller.",
+      "Same KPIs as the general overview (revenue, today occupancy) scoped to one " +
+      "spacecraft, plus a summary of its workshop visit history.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" },
+        spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" },
       },
       required: ["spacecraftId"],
     },
@@ -322,24 +323,24 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "list_active_tickets",
-    title: "Entradas activas",
+    title: "Active tickets",
     description:
-      "Detalle de entradas activas de museo y teatro: comprador, fecha/hora de la visita " +
-      "o función, cantidad y costo. Sin spacecraftId trae las de toda la flota.",
+      "Detail of active museum and theater tickets: buyer, visit/show " +
+      "date and time, quantity and cost. Without spacecraftId returns the whole fleet.",
     zodShape: {
       spacecraftId: z.coerce
         .number()
         .int()
         .positive()
         .optional()
-        .describe("Filtrar por una nave puntual (opcional)"),
+        .describe("Filter by single spacecraft (optional)"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
         spacecraftId: {
           type: SchemaType.INTEGER,
-          description: "Filtrar por una nave puntual (opcional)",
+          description: "Filter by single spacecraft (optional)",
         },
       },
       required: [],
@@ -351,16 +352,16 @@ export const NAVESPACE_TOOLS = [
   // ============================== LECTURA — Museo ==============================
   {
     name: "get_museum_schedule",
-    title: "Horario configurado del museo",
+    title: "Configured museum schedule",
     description:
-      "Horario de museo ya guardado para una nave (día por día, apertura/cierre). Distinto " +
-      "de get_museum_availability: esto es la configuración cargada, no los cupos ocupados.",
+      "Saved museum hours for one spacecraft (day by day, open/close). Unlike " +
+      "get_museum_availability: this is the stored config, not booked capacity.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" } },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" } },
       required: ["spacecraftId"],
     },
     async handler({ spacecraftId }) {
@@ -369,24 +370,24 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_museum_availability",
-    title: "Disponibilidad de museo",
+    title: "Museum availability",
     description:
-      "Cupos reservados vs. capacidad por franja horaria, para una nave-museo en una " +
-      "fecha puntual.",
+      "Booked slots vs. capacity per time slot, for one museum spacecraft on one " +
+      "given date.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
       date: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD")
-        .describe("Fecha a consultar, formato YYYY-MM-DD"),
+        .describe("Date to check, YYYY-MM-DD format"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" },
+        spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" },
         date: {
           type: SchemaType.STRING,
-          description: "Fecha a consultar, formato YYYY-MM-DD",
+          description: "Date to check, YYYY-MM-DD format",
         },
       },
       required: ["spacecraftId", "date"],
@@ -400,23 +401,23 @@ export const NAVESPACE_TOOLS = [
   // ============================== ESCRITURA — Museo ==============================
   {
     name: "save_museum_schedule_day",
-    title: "Cargar horario de museo para un día",
+    title: "Set museum hours for one day",
     description:
-      "Define apertura y cierre del museo de una nave para un día puntual (dentro de la " +
-      "ventana de hoy + 7 días). Sin advertencia asociada — se puede ejecutar directo.",
+      "Sets museum open and close time for one spacecraft on one given day (within " +
+      "the today + 7 days window). No warning attached — can run directly.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD").describe("Día a configurar"),
-      openTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Formato esperado: HH:MM").describe("Hora de apertura"),
-      closeTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Formato esperado: HH:MM").describe("Hora de cierre"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD").describe("Day to configure"),
+      openTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Formato esperado: HH:MM").describe("Opening time"),
+      closeTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Formato esperado: HH:MM").describe("Closing time"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" },
-        date: { type: SchemaType.STRING, description: "Día a configurar, formato YYYY-MM-DD" },
-        openTime: { type: SchemaType.STRING, description: "Hora de apertura, formato HH:MM" },
-        closeTime: { type: SchemaType.STRING, description: "Hora de cierre, formato HH:MM" },
+        spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" },
+        date: { type: SchemaType.STRING, description: "Day to configure, YYYY-MM-DD format" },
+        openTime: { type: SchemaType.STRING, description: "Opening time, HH:MM format" },
+        closeTime: { type: SchemaType.STRING, description: "Closing time, HH:MM format" },
       },
       required: ["spacecraftId", "date", "openTime", "closeTime"],
     },
@@ -430,24 +431,24 @@ export const NAVESPACE_TOOLS = [
   // ============================== LECTURA — Teatro ==============================
   {
     name: "list_theater_events",
-    title: "Funciones de teatro",
+    title: "Theater shows",
     description:
-      "Lista las funciones de teatro programadas (categoría, rango de fechas, nave). " +
-      "Sin spacecraftId trae las de toda la flota.",
+      "Lists scheduled theater shows (category, date range, spacecraft). " +
+      "Without spacecraftId returns the whole fleet.",
     zodShape: {
       spacecraftId: z.coerce
         .number()
         .int()
         .positive()
         .optional()
-        .describe("Filtrar por una nave puntual (opcional)"),
+        .describe("Filter by single spacecraft (optional)"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
         spacecraftId: {
           type: SchemaType.INTEGER,
-          description: "Filtrar por una nave puntual (opcional)",
+          description: "Filter by single spacecraft (optional)",
         },
       },
       required: [],
@@ -458,17 +459,17 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_theater_event_sales",
-    title: "Ventas de una función de teatro",
+    title: "Sales for one theater show",
     description:
-      "Resumen de ventas de una función puntual: asientos vendidos, cantidad de entradas " +
-      "activas y desglose por fecha de función.",
+      "Sales summary for one show: seats sold, active ticket count " +
+      "and breakdown by show date.",
     zodShape: {
-      eventId: z.coerce.number().int().positive().describe("ID de la función de teatro"),
+      eventId: z.coerce.number().int().positive().describe("Theater show ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        eventId: { type: SchemaType.INTEGER, description: "ID de la función de teatro" },
+        eventId: { type: SchemaType.INTEGER, description: "Theater show ID" },
       },
       required: ["eventId"],
     },
@@ -479,19 +480,19 @@ export const NAVESPACE_TOOLS = [
   // ============================== ESCRITURA — Teatro ==============================
   {
     name: "create_theater_event",
-    title: "Crear función de teatro",
+    title: "Create theater show",
     description:
-      "Crea una función de teatro nueva para una nave (se repite todos los días del rango a " +
-      "la misma hora, 100 asientos fijos). Falla si choca en horario con otra función de la " +
-      "misma nave. Sin advertencia asociada — se puede ejecutar directo.",
+      "Creates a new theater show for one spacecraft (repeats every day of the range at " +
+      "the same time, fixed 100 seats). Fails if it overlaps another show on the " +
+      "same spacecraft. No warning attached — can run directly.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
       ...theaterEventZodFields,
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" },
+        spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" },
         ...theaterEventGeminiProperties,
       },
       required: ["spacecraftId", "eventType", "startDate", "endDate", "time"],
@@ -505,20 +506,20 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "update_theater_event",
-    title: "Editar función de teatro",
+    title: "Edit theater show",
     description:
-      "Edita una función de teatro existente (reemplaza tipo, fechas y hora). Sin " +
-      "advertencia asociada — se puede ejecutar directo.",
+      "Edits an existing theater show (replaces type, dates and time). No " +
+      "warning attached — can run directly.",
     zodShape: {
-      eventId: z.coerce.number().int().positive().describe("ID de la función a editar"),
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave dueña de la función"),
+      eventId: z.coerce.number().int().positive().describe("Theater show ID to edit"),
+      spacecraftId: z.coerce.number().int().positive().describe("ID of spacecraft owning the show"),
       ...theaterEventZodFields,
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        eventId: { type: SchemaType.INTEGER, description: "ID de la función a editar" },
-        spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave dueña de la función" },
+        eventId: { type: SchemaType.INTEGER, description: "Theater show ID to edit" },
+        spacecraftId: { type: SchemaType.INTEGER, description: "ID of spacecraft owning the show" },
         ...theaterEventGeminiProperties,
       },
       required: ["eventId", "spacecraftId", "eventType", "startDate", "endDate", "time"],
@@ -532,19 +533,19 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "delete_theater_event",
-    title: "Eliminar función de teatro",
+    title: "Delete theater show",
     description:
-      "Elimina una función de teatro de forma PERMANENTE. Acción destructiva: SIEMPRE hay " +
-      "que explicarle al usuario qué función se va a borrar y pedirle confirmación explícita " +
-      "en el chat antes de llamar a esta tool; solo ejecutarla en un turno posterior si el " +
-      "usuario confirma con claridad (mismo criterio que usa el panel, que también pide 'Sí, " +
-      "borrar' antes de eliminar).",
+      "Deletes a theater show PERMANENTLY. Destructive: ALWAYS explain " +
+      "to the user which show will be deleted and ask for explicit confirmation " +
+      "in chat before calling this tool; only run it on a later turn if the " +
+      "user clearly confirms (same rule as the panel, which also asks 'Sí, " +
+      "borrar' before deleting).",
     zodShape: {
-      eventId: z.coerce.number().int().positive().describe("ID de la función a eliminar"),
+      eventId: z.coerce.number().int().positive().describe("Theater show ID to delete"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { eventId: { type: SchemaType.INTEGER, description: "ID de la función a eliminar" } },
+      properties: { eventId: { type: SchemaType.INTEGER, description: "Theater show ID to delete" } },
       required: ["eventId"],
     },
     async handler({ eventId }) {
@@ -555,19 +556,19 @@ export const NAVESPACE_TOOLS = [
   // ============================== LECTURA — Taller (lado Java: envío) ==============================
   {
     name: "get_repair_history",
-    title: "Historial de reparaciones (resumen)",
+    title: "Repair history (summary)",
     description:
-      "Historial de visitas al taller de una nave (fechas de envío, daños reportados) — " +
-      "resumen agregado que vive en Java. Para el detalle fino de una reparación puntual " +
-      "(sub-estados, presupuestos, repuestos) usar get_active_repair/get_repairs_for_spacecraft " +
-      "/get_repair_detail, que consultan el backend de taller (Python).",
+      "Workshop visit history for one spacecraft (send dates, reported damages) — " +
+      "aggregate summary living in Java. For fine detail of one given repair " +
+      "(sub-statuses, budgets, parts) use get_active_repair/get_repairs_for_spacecraft " +
+      "/get_repair_detail, which query the workshop backend (Python).",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" },
+        spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" },
       },
       required: ["spacecraftId"],
     },
@@ -577,18 +578,18 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_repair_impact",
-    title: "Impacto de enviar una nave al taller",
+    title: "Impact of sending a spacecraft to the workshop",
     description:
-      "Vista previa de lo que pasaría si se envía esta nave al taller AHORA: cuántas " +
-      "entradas activas se cancelarían y cuántos horarios de museo/funciones de teatro se " +
-      "cerrarían. Hay que llamar a esta tool y mostrarle el resultado al usuario ANTES de " +
-      "llamar a send_spacecraft_to_taller, como parte de pedirle confirmación.",
+      "Preview of what would happen if this spacecraft is sent to the workshop NOW: how many " +
+      "active tickets would be cancelled and how many museum/theater schedules " +
+      "would close. Must call this tool and show the result to the user BEFORE " +
+      "calling send_spacecraft_to_taller, as part of asking for confirmation.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" } },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" } },
       required: ["spacecraftId"],
     },
     async handler({ spacecraftId }) {
@@ -598,39 +599,39 @@ export const NAVESPACE_TOOLS = [
   // ============================== ESCRITURA — Taller (lado Java: envío / retiro) ==============================
   {
     name: "send_spacecraft_to_taller",
-    title: "Enviar una nave al taller",
+    title: "Send spacecraft to workshop",
     description:
-      "Envía una nave al taller con los daños elegidos. Cancela las entradas activas de esa " +
-      "nave y cierra sus horarios/funciones — ACCIÓN CON IMPACTO REAL, no solo destructiva " +
-      "sobre la nave sino sobre ventas ya hechas. Flujo obligatorio: 1) llamar primero a " +
-      "get_damage_catalog para conocer las categorías/subtipos válidos y a get_repair_impact " +
-      "para saber cuántas entradas/horarios se verían afectados, 2) explicarle claramente el " +
-      "impacto al usuario y pedir confirmación explícita en el chat, 3) recién en un turno " +
-      "posterior, si el usuario confirma, llamar a esta tool.",
+      "Sends a spacecraft to the workshop with the chosen damages. Cancels that " +
+      "spacecraft's active tickets and closes its schedules/shows — ACTION WITH REAL IMPACT, " +
+      "not only destructive on the spacecraft but on already sold tickets. Mandatory flow: 1) first call " +
+      "get_damage_catalog for valid categories/subtypes and get_repair_impact " +
+      "to know how many tickets/schedules would be affected, 2) clearly explain the " +
+      "impact to the user and ask for explicit confirmation in chat, 3) only on a later " +
+      "turn, if the user confirms, call this tool.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave a enviar"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID to send"),
       damages: z
         .array(
           z.object({
-            category: z.string().min(1).describe("Categoría de daño (clave del catálogo)"),
-            subtype: z.string().min(1).describe("Subtipo de daño dentro de la categoría"),
+            category: z.string().min(1).describe("Damage category (catalog key)"),
+            subtype: z.string().min(1).describe("Damage subtype within the category"),
           })
         )
         .min(1)
-        .describe("Uno o más daños reportados"),
+        .describe("One or more reported damages"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave a enviar" },
+        spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID to send" },
         damages: {
           type: SchemaType.ARRAY,
-          description: "Uno o más daños reportados",
+          description: "One or more reported damages",
           items: {
             type: SchemaType.OBJECT,
             properties: {
-              category: { type: SchemaType.STRING, description: "Categoría de daño (clave del catálogo)" },
-              subtype: { type: SchemaType.STRING, description: "Subtipo de daño dentro de la categoría" },
+              category: { type: SchemaType.STRING, description: "Damage category (catalog key)" },
+              subtype: { type: SchemaType.STRING, description: "Damage subtype within the category" },
             },
             required: ["category", "subtype"],
           },
@@ -647,18 +648,18 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "confirm_ship_operational",
-    title: "Marcar nave como retirada del taller (OPERATIVA)",
+    title: "Mark spacecraft as collected from workshop (OPERATIONAL)",
     description:
-      "El dueño de la flota confirma que retiró la nave del taller: vuelve a marcarla " +
-      "OPERATIVA en naveSpace. Idempotente. Normalmente se llama DESPUÉS de " +
-      "receive_ship_from_taller (que cierra el lado del taller). Sin advertencia asociada — " +
-      "se puede ejecutar directo.",
+      "The fleet owner confirms the spacecraft was collected from the workshop: marks it " +
+      "OPERATIVA again in naveSpace. Idempotent. Normally called AFTER " +
+      "receive_ship_from_taller (which closes the workshop side). No warning " +
+      "attached — can run directly.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" } },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" } },
       required: ["spacecraftId"],
     },
     async handler({ spacecraftId }) {
@@ -668,10 +669,10 @@ export const NAVESPACE_TOOLS = [
   // ============================== LECTURA — Taller (lado Python: catálogo/estado/presupuestos) ==============================
   {
     name: "get_damage_catalog",
-    title: "Catálogo de daños",
+    title: "Damage catalog",
     description:
-      "Categorías y subtipos de daño válidos para reportar al enviar una nave al taller. " +
-      "Consultar esto antes de armar los `damages` de send_spacecraft_to_taller.",
+      "Valid damage categories and subtypes to report when sending a spacecraft to the workshop. " +
+      "Check this before building the damages of send_spacecraft_to_taller.",
     zodShape: {},
     geminiParameters: emptyGeminiParams,
     async handler() {
@@ -680,16 +681,16 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_repairs_for_spacecraft",
-    title: "Historial completo de reparaciones (detalle)",
+    title: "Full repair history (detail)",
     description:
-      "Historial completo de reparaciones de una nave en el backend de taller, incluida la " +
-      "activa si está en curso: sub-estados, fechas, presupuestos asociados.",
+      "Full repair history for one spacecraft in the workshop backend, including the " +
+      "active one if underway: sub-statuses, dates, linked budgets.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" } },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" } },
       required: ["spacecraftId"],
     },
     async handler({ spacecraftId }) {
@@ -698,17 +699,17 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_active_repair",
-    title: "Reparación activa de una nave",
+    title: "Active repair for one spacecraft",
     description:
-      "Reparación actualmente abierta de una nave (estado distinto de ENTREGADA), con su " +
-      "repairId — necesario para consultar/rechazar presupuestos o recibir la nave. Si la " +
-      "nave no tiene ninguna reparación abierta, devuelve null.",
+      "Currently open repair for one spacecraft (status other than ENTREGADA), with its " +
+      "repairId — needed to check/reject budgets or collect the spacecraft. If the " +
+      "spacecraft has no open repair, returns null.",
     zodShape: {
-      spacecraftId: z.coerce.number().int().positive().describe("ID de la nave"),
+      spacecraftId: z.coerce.number().int().positive().describe("Spacecraft ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "ID de la nave" } },
+      properties: { spacecraftId: { type: SchemaType.INTEGER, description: "Spacecraft ID" } },
       required: ["spacecraftId"],
     },
     async handler({ spacecraftId }) {
@@ -722,14 +723,14 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_repair_detail",
-    title: "Detalle de una reparación",
-    description: "Detalle completo de una reparación puntual por su ID (estado, daños, fechas).",
+    title: "Repair detail",
+    description: "Full detail for one repair by ID (status, damages, dates).",
     zodShape: {
-      repairId: z.coerce.number().int().positive().describe("ID de la reparación"),
+      repairId: z.coerce.number().int().positive().describe("Repair ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { repairId: { type: SchemaType.INTEGER, description: "ID de la reparación" } },
+      properties: { repairId: { type: SchemaType.INTEGER, description: "Repair ID" } },
       required: ["repairId"],
     },
     async handler({ repairId }) {
@@ -738,17 +739,17 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "get_budgets",
-    title: "Presupuestos de una reparación",
+    title: "Budgets for one repair",
     description:
-      "Lista los presupuestos armados por el taller para una reparación, con sus líneas de " +
-      "repuestos y estado (PENDIENTE/APROBADO/RECHAZADO). No incluye la acción de aprobar " +
-      "(eso cobra a BankIn y solo se hace desde el panel).",
+      "Lists budgets built by the workshop for one repair, with their parts " +
+      "lines and status (PENDIENTE/APROBADO/RECHAZADO). Excludes the approve " +
+      "action (that charges BankIn and is panel-only).",
     zodShape: {
-      repairId: z.coerce.number().int().positive().describe("ID de la reparación"),
+      repairId: z.coerce.number().int().positive().describe("Repair ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { repairId: { type: SchemaType.INTEGER, description: "ID de la reparación" } },
+      properties: { repairId: { type: SchemaType.INTEGER, description: "Repair ID" } },
       required: ["repairId"],
     },
     async handler({ repairId }) {
@@ -758,21 +759,21 @@ export const NAVESPACE_TOOLS = [
   // ============================== ESCRITURA — Taller (lado Python: dueño de flota) ==============================
   {
     name: "reject_budget",
-    title: "Rechazar un presupuesto de taller",
+    title: "Reject workshop budget",
     description:
-      "Rechaza un presupuesto pendiente; el taller queda libre para armar uno nuevo. No " +
-      "cobra nada (a diferencia de aprobar, que está fuera de alcance de este asistente). " +
-      "Sin advertencia asociada — se puede ejecutar directo, sin pedir confirmación previa " +
-      "(mismo criterio que el botón 'Rechazar' del panel, que no pide doble confirmación).",
+      "Rejects a pending budget; the workshop is then free to build a new one. Charges " +
+      "nothing (unlike approving, which is out of scope for this assistant). " +
+      "No warning attached — can run directly, without asking for prior " +
+      "confirmation (same rule as the panel 'Rechazar' button, which asks no double confirmation).",
     zodShape: {
-      repairId: z.coerce.number().int().positive().describe("ID de la reparación"),
-      budgetId: z.coerce.number().int().positive().describe("ID del presupuesto a rechazar"),
+      repairId: z.coerce.number().int().positive().describe("Repair ID"),
+      budgetId: z.coerce.number().int().positive().describe("ID of budget to reject"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        repairId: { type: SchemaType.INTEGER, description: "ID de la reparación" },
-        budgetId: { type: SchemaType.INTEGER, description: "ID del presupuesto a rechazar" },
+        repairId: { type: SchemaType.INTEGER, description: "Repair ID" },
+        budgetId: { type: SchemaType.INTEGER, description: "ID of budget to reject" },
       },
       required: ["repairId", "budgetId"],
     },
@@ -782,17 +783,17 @@ export const NAVESPACE_TOOLS = [
   },
   {
     name: "receive_ship_from_taller",
-    title: "Cerrar el lado del taller (reparación → ENTREGADA)",
+    title: "Close workshop side (repair to DELIVERED)",
     description:
-      "Cierra el lado del taller de una reparación (pasa a ENTREGADA). Idempotente. Se llama " +
-      "ANTES de confirm_ship_operational (que es el lado de naveSpace). Sin advertencia " +
-      "asociada — se puede ejecutar directo.",
+      "Closes the workshop side of one repair (moves to ENTREGADA). Idempotent. Called " +
+      "BEFORE confirm_ship_operational (the naveSpace side). No warning " +
+      "attached — can run directly.",
     zodShape: {
-      repairId: z.coerce.number().int().positive().describe("ID de la reparación"),
+      repairId: z.coerce.number().int().positive().describe("Repair ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { repairId: { type: SchemaType.INTEGER, description: "ID de la reparación" } },
+      properties: { repairId: { type: SchemaType.INTEGER, description: "Repair ID" } },
       required: ["repairId"],
     },
     async handler({ repairId }) {

@@ -22,9 +22,9 @@ function db() {
 function normalizeUsage(usage) {
   if (!usage || typeof usage !== "object") return undefined;
   const input =
-    usage.input_tokens ?? usage.promptTokenCount ?? usage.prompt_token_count;
+    usage.input_tokens ?? usage.promptTokenCount ?? usage.prompt_token_count ?? usage.prompt_tokens;
   const output =
-    usage.output_tokens ?? usage.candidatesTokenCount ?? usage.candidates_token_count;
+    usage.output_tokens ?? usage.candidatesTokenCount ?? usage.candidates_token_count ?? usage.completion_tokens;
   const total =
     usage.total_tokens ?? usage.totalTokenCount ?? usage.total_token_count;
   const cached =

@@ -52,17 +52,17 @@ async function listSparePartsHandler({ activeOnly = true } = {}) {
 const newTallerTools = [
   {
     name: "get_shop_repairs",
-    title: "Reparaciones del taller",
+    title: "Shop repairs",
     description:
-      "Lista las reparaciones que ve el taller, opcionalmente filtradas por estado. Sin " +
-      "status trae todas (activas e históricas).",
+      "Lists shop repairs, optionally filtered by status. Without " +
+      "status returns all (active and historic).",
     zodShape: {
-      status: z.enum(REPAIR_STATUSES).optional().describe("Filtrar por estado (opcional)"),
+      status: z.enum(REPAIR_STATUSES).optional().describe("Filter by status (optional)"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        status: { type: SchemaType.STRING, format: "enum", enum: REPAIR_STATUSES, description: "Filtrar por estado (opcional)" },
+        status: { type: SchemaType.STRING, format: "enum", enum: REPAIR_STATUSES, description: "Filter by status (optional)" },
       },
       required: [],
     },
@@ -72,16 +72,16 @@ const newTallerTools = [
   },
   {
     name: "confirm_repair_receipt",
-    title: "Confirmar recepción de una nave",
+    title: "Confirm ship receipt",
     description:
-      "El taller confirma que recibió físicamente una nave recién enviada (pasa de ENVIADA a " +
-      "RECIBIDA). Sin advertencia asociada — se puede ejecutar directo.",
+      "Shop confirms physical receipt of a newly sent ship (moves ENVIADA to " +
+      "RECIBIDA). No warning, can run directly.",
     zodShape: {
-      repairId: z.coerce.number().int().positive().describe("ID de la reparación"),
+      repairId: z.coerce.number().int().positive().describe("Repair ID"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { repairId: { type: SchemaType.INTEGER, description: "ID de la reparación" } },
+      properties: { repairId: { type: SchemaType.INTEGER, description: "Repair ID" } },
       required: ["repairId"],
     },
     async handler({ repairId }) {
@@ -90,22 +90,21 @@ const newTallerTools = [
   },
   {
     name: "advance_repair_status",
-    title: "Avanzar el estado de una reparación",
+    title: "Advance repair status",
     description:
-      "Avanza manualmente el estado de una reparación: RECIBIDA→EN_REVISION, " +
-      "EN_REVISION→EN_TRABAJO, o EN_TRABAJO→LISTA_PARA_SALIR (el backend valida que sea el " +
-      "único avance permitido desde el estado actual — si no estás seguro del estado actual, " +
-      "consultá get_repair_detail primero). Sin advertencia asociada — se puede ejecutar " +
-      "directo.",
+      "Manually advances a repair one step: RECIBIDA to EN_REVISION, " +
+      "EN_REVISION to EN_TRABAJO, or EN_TRABAJO to LISTA_PARA_SALIR (backend enforces " +
+      "the single allowed step from the current status; if unsure of current status, " +
+      "check get_repair_detail first). No warning, can run directly.",
     zodShape: {
-      repairId: z.coerce.number().int().positive().describe("ID de la reparación"),
-      status: z.enum(MANUAL_ADVANCE_TARGETS).describe("Estado destino"),
+      repairId: z.coerce.number().int().positive().describe("Repair ID"),
+      status: z.enum(MANUAL_ADVANCE_TARGETS).describe("Target status"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        repairId: { type: SchemaType.INTEGER, description: "ID de la reparación" },
-        status: { type: SchemaType.STRING, format: "enum", enum: MANUAL_ADVANCE_TARGETS, description: "Estado destino" },
+        repairId: { type: SchemaType.INTEGER, description: "Repair ID" },
+        status: { type: SchemaType.STRING, format: "enum", enum: MANUAL_ADVANCE_TARGETS, description: "Target status" },
       },
       required: ["repairId", "status"],
     },
@@ -115,18 +114,18 @@ const newTallerTools = [
   },
   {
     name: "list_spare_parts",
-    title: "Stock de repuestos",
+    title: "Spare parts stock",
     description:
-      "Lista los repuestos del taller (nombre, precio, stock informativo, activo/inactivo). " +
-      "Consultar esto antes de armar un presupuesto (create_budget) para conocer los " +
-      "sparePartId y precios válidos.",
+      "Lists shop spare parts (name, price, informative stock, active/inactive). " +
+      "Check this before building a budget (create_budget) for valid " +
+      "sparePartIds and prices.",
     zodShape: {
-      activeOnly: z.boolean().optional().describe("true = solo repuestos activos (default). false = incluye desactivados."),
+      activeOnly: z.boolean().optional().describe("true = active parts only (default). false = include deactivated."),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        activeOnly: { type: SchemaType.BOOLEAN, description: "true = solo repuestos activos (default). false = incluye desactivados." },
+        activeOnly: { type: SchemaType.BOOLEAN, description: "true = active parts only (default). false = include deactivated." },
       },
       required: [],
     },
@@ -136,21 +135,21 @@ const newTallerTools = [
   },
   {
     name: "create_spare_part",
-    title: "Agregar un repuesto al stock",
+    title: "Add spare part to stock",
     description:
-      "Da de alta un repuesto nuevo en el stock del taller. Sin advertencia asociada — se " +
-      "puede ejecutar directo.",
+      "Adds a new spare part to shop stock. No warning, " +
+      "can run directly.",
     zodShape: {
-      name: z.string().min(1).describe("Nombre del repuesto"),
-      price: z.coerce.number().nonnegative().describe("Precio unitario en euros"),
-      stockQuantity: z.coerce.number().int().nonnegative().optional().describe("Cantidad en stock (informativo, opcional)"),
+      name: z.string().min(1).describe("Part name"),
+      price: z.coerce.number().nonnegative().describe("Unit price in euros"),
+      stockQuantity: z.coerce.number().int().nonnegative().optional().describe("Stock quantity (informative, optional)"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        name: { type: SchemaType.STRING, description: "Nombre del repuesto" },
-        price: { type: SchemaType.NUMBER, description: "Precio unitario en euros" },
-        stockQuantity: { type: SchemaType.NUMBER, description: "Cantidad en stock (informativo, opcional)" },
+        name: { type: SchemaType.STRING, description: "Part name" },
+        price: { type: SchemaType.NUMBER, description: "Unit price in euros" },
+        stockQuantity: { type: SchemaType.NUMBER, description: "Stock quantity (informative, optional)" },
       },
       required: ["name", "price"],
     },
@@ -163,26 +162,26 @@ const newTallerTools = [
   },
   {
     name: "update_spare_part",
-    title: "Editar un repuesto",
+    title: "Edit spare part",
     description:
-      "Edita campos puntuales de un repuesto existente (nombre, precio, stock, o " +
-      "reactivarlo poniendo active en true). Mandá solo los campos que querés cambiar. Sin " +
-      "advertencia asociada — se puede ejecutar directo.",
+      "Edits selected fields of an existing part (name, price, stock, or " +
+      "reactivate with active true). Send only fields to change. No " +
+      "warning, can run directly.",
     zodShape: {
-      partId: z.coerce.number().int().positive().describe("ID del repuesto"),
-      name: z.string().min(1).optional().describe("Nuevo nombre (opcional)"),
-      price: z.coerce.number().nonnegative().optional().describe("Nuevo precio en euros (opcional)"),
-      stockQuantity: z.coerce.number().int().nonnegative().optional().describe("Nuevo stock (opcional)"),
-      active: z.boolean().optional().describe("true para reactivar un repuesto desactivado (opcional)"),
+      partId: z.coerce.number().int().positive().describe("Part ID"),
+      name: z.string().min(1).optional().describe("New name (optional)"),
+      price: z.coerce.number().nonnegative().optional().describe("New price in euros (optional)"),
+      stockQuantity: z.coerce.number().int().nonnegative().optional().describe("New stock (optional)"),
+      active: z.boolean().optional().describe("true to reactivate a deactivated part (optional)"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        partId: { type: SchemaType.INTEGER, description: "ID del repuesto" },
-        name: { type: SchemaType.STRING, description: "Nuevo nombre (opcional)" },
-        price: { type: SchemaType.NUMBER, description: "Nuevo precio en euros (opcional)" },
-        stockQuantity: { type: SchemaType.NUMBER, description: "Nuevo stock (opcional)" },
-        active: { type: SchemaType.BOOLEAN, description: "true para reactivar un repuesto desactivado (opcional)" },
+        partId: { type: SchemaType.INTEGER, description: "Part ID" },
+        name: { type: SchemaType.STRING, description: "New name (optional)" },
+        price: { type: SchemaType.NUMBER, description: "New price in euros (optional)" },
+        stockQuantity: { type: SchemaType.NUMBER, description: "New stock (optional)" },
+        active: { type: SchemaType.BOOLEAN, description: "true to reactivate a deactivated part (optional)" },
       },
       required: ["partId"],
     },
@@ -196,17 +195,16 @@ const newTallerTools = [
   },
   {
     name: "deactivate_spare_part",
-    title: "Desactivar un repuesto",
+    title: "Deactivate spare part",
     description:
-      "Desactiva un repuesto (soft-delete, reversible con update_spare_part y active=true). " +
-      "Sin advertencia asociada — se puede ejecutar directo, igual que el botón del panel de " +
-      "stock, que tampoco pide confirmación para esto.",
+      "Deactivates a part (soft-delete, reversible with update_spare_part and active=true). " +
+      "No warning, can run directly, same as the stock panel button.",
     zodShape: {
-      partId: z.coerce.number().int().positive().describe("ID del repuesto a desactivar"),
+      partId: z.coerce.number().int().positive().describe("ID of part to deactivate"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
-      properties: { partId: { type: SchemaType.INTEGER, description: "ID del repuesto a desactivar" } },
+      properties: { partId: { type: SchemaType.INTEGER, description: "ID of part to deactivate" } },
       required: ["partId"],
     },
     async handler({ partId }) {
@@ -215,39 +213,38 @@ const newTallerTools = [
   },
   {
     name: "create_budget",
-    title: "Armar un presupuesto de reparación",
+    title: "Create repair budget",
     description:
-      "Crea un presupuesto para una reparación eligiendo repuestos y cantidades (el total " +
-      "sale de sumar precio × cantidad de cada línea, no hay campo de mano de obra en esta " +
-      "demo). Consultar list_spare_parts primero para conocer los sparePartId y precios " +
-      "válidos. Al crearse, la reparación pasa a ESPERANDO_APROBACION_PRESUPUESTO y queda a " +
-      "la espera de que el dueño de la flota lo apruebe (cobra a BankIn, fuera de alcance de " +
-      "este asistente) o lo rechace desde el panel admin. Sin advertencia asociada acá — se " +
-      "puede ejecutar directo.",
+      "Creates a budget for a repair from parts and quantities (total " +
+      "is price times quantity per line, no labor field in this " +
+      "demo). Check list_spare_parts first for valid " +
+      "sparePartIds and prices. On creation the repair moves to ESPERANDO_APROBACION_PRESUPUESTO " +
+      "pending fleet owner approval or rejection from the admin panel. No warning here, " +
+      "can run directly.",
     zodShape: {
-      repairId: z.coerce.number().int().positive().describe("ID de la reparación"),
+      repairId: z.coerce.number().int().positive().describe("Repair ID"),
       items: z
         .array(
           z.object({
-            sparePartId: z.coerce.number().int().positive().describe("ID del repuesto (de list_spare_parts)"),
-            quantity: z.coerce.number().int().positive().describe("Cantidad de ese repuesto"),
+            sparePartId: z.coerce.number().int().positive().describe("Part ID (from list_spare_parts)"),
+            quantity: z.coerce.number().int().positive().describe("Quantity of that part"),
           })
         )
         .min(1)
-        .describe("Una o más líneas de repuestos"),
+        .describe("One or more part lines"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
-        repairId: { type: SchemaType.INTEGER, description: "ID de la reparación" },
+        repairId: { type: SchemaType.INTEGER, description: "Repair ID" },
         items: {
           type: SchemaType.ARRAY,
-          description: "Una o más líneas de repuestos",
+          description: "One or more part lines",
           items: {
             type: SchemaType.OBJECT,
             properties: {
-              sparePartId: { type: SchemaType.INTEGER, description: "ID del repuesto (de list_spare_parts)" },
-              quantity: { type: SchemaType.INTEGER, description: "Cantidad de ese repuesto" },
+              sparePartId: { type: SchemaType.INTEGER, description: "Part ID (from list_spare_parts)" },
+              quantity: { type: SchemaType.INTEGER, description: "Quantity of that part" },
             },
             required: ["sparePartId", "quantity"],
           },
@@ -273,37 +270,33 @@ const newTallerTools = [
     // que el frontend (TallerAssistantWidget.jsx) pueda pintar una tarjeta de borrador en vez
     // de depender de que el modelo transcriba los números en texto plano.
     name: "draft_budget_from_damage_description",
-    title: "Borrador de presupuesto desde daños en texto libre",
+    title: "Draft budget from free-text damage",
     structuredType: "budget_draft",
     description:
-      "A partir de una o más descripciones de daño en texto libre (como las escribiría el " +
-      "personal del taller, sin usar las categorías/subtipos exactos del catálogo), arma un " +
-      "BORRADOR de presupuesto matcheando cada descripción contra el catálogo de daños y el " +
-      "stock de repuestos con reglas de texto (exacto/fuzzy) — sin gastar una llamada de IA en " +
-      "eso. Para las descripciones que matchean un repuesto con confianza, la línea ya viene " +
-      "armada (repuesto, precio, cantidad=1). Para las que NO matchean con confianza, vas a " +
-      "recibir en 'unresolved' los mejores candidatos de daño y de repuesto para que decidas " +
-      "vos con criterio (nunca inventes un sparePartId que no esté en la lista de candidatos ni " +
-      "en list_spare_parts). Esto es SOLO un borrador — no crea nada en el backend, no confundir " +
-      "con create_budget. Mostrale el borrador completo al usuario (líneas resueltas + las que " +
-      "necesitan su criterio, con el total de las resueltas) y pedile que confirme explícitamente " +
-      "qué repuesto usar en cada línea no resuelta, y recién si confirma ofrecete a llamar a " +
-      "create_budget con el repairId real — a diferencia del resto de las acciones de este " +
-      "catálogo, este SÍ conviene confirmarlo antes porque son matches automáticos de texto que " +
-      "podrían no ser el repuesto correcto.",
+      "Builds a DRAFT budget from one or more free-text damage descriptions (as shop staff " +
+      "would write them, without exact catalog categories), matching each against the damage " +
+      "catalog and parts stock with text rules (exact/fuzzy), no extra AI call. Confident " +
+      "matches come back as ready lines (part, price, quantity 1). Low-confidence ones come " +
+      "back in unresolved with top damage and part candidates for you to judge (never invent " +
+      "a sparePartId outside the candidates or list_spare_parts). This is ONLY a draft, it " +
+      "creates nothing, do not confuse with create_budget. Show the user the full draft " +
+      "(resolved lines plus lines needing judgment, with the resolved total) and ask for " +
+      "explicit confirmation of which part to use per unresolved line, and only if confirmed " +
+      "offer to call create_budget with the real repairId; unlike other actions here, confirm " +
+      "this one first because text matches may be wrong.",
     zodShape: {
       descriptions: z
         .array(z.string().min(1).max(300))
         .min(1)
         .max(10)
-        .describe("Una o más descripciones de daño en texto libre (máximo 10 por llamada)"),
+        .describe("One or more free-text damage descriptions (max 10 per call)"),
     },
     geminiParameters: {
       type: SchemaType.OBJECT,
       properties: {
         descriptions: {
           type: SchemaType.ARRAY,
-          description: "Una o más descripciones de daño en texto libre (máximo 10 por llamada)",
+          description: "One or more free-text damage descriptions (max 10 per call)",
           items: { type: SchemaType.STRING },
         },
       },
