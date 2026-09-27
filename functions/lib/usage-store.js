@@ -53,12 +53,16 @@ export function buildUsageRecord({ endpoint, result, latencyMs, questionLength, 
     latencyMs,
     questionLength,
     historyTurns,
-    budgetDraft: draft
+    // budgetDraft solo cuando hubo borrador: Firestore rechaza fields `undefined` y
+    // sin esto NINGÚN documento de askAdmin se persistía (visto en logs de prod).
+    ...(draft
       ? {
-          resolvedWithoutLlm: draft.resolvedWithoutLlm,
-          needsModelJudgment: draft.needsModelJudgment,
+          budgetDraft: {
+            resolvedWithoutLlm: draft.resolvedWithoutLlm,
+            needsModelJudgment: draft.needsModelJudgment,
+          },
         }
-      : undefined,
+      : {}),
   };
 }
 
