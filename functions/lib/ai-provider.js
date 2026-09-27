@@ -284,13 +284,23 @@ async function runGroq({ apiKey, model, systemPrompt, tools, history, question, 
       temperature,
       max_tokens: maxOutputTokens,
     });
-    const msg = data?.choices?.[0]?.message;
+    // OJO: finish_reason vive en el CHOICE, no en el message (bug real 2026-09-28:
+    // leerlo del message lo dejaba en undefined y el loop cortaba siempre en la
+    // primera vuelta — Groq nunca ejecutaba tools). Además se confía en la presencia
+    // de tool_calls por sobre el finish_reason (algunos modelos devuelven "stop" con
+    // tool_calls igual).
+    const choice = data?.choices?.[0];
+    const msg = choice?.message;
     if (!msg) throw new Error("Groq devolvió una respuesta vacía.");
-    const toolCalls = msg.tool_calls || [];
-    if (msg.finish_reason !== "tool_calls" || toolCalls.length === 0 || rounds >= maxRounds) break;
+    // modelCalls (lo que pidió el modelo, se reenvía tal cual) vs toolCalls (acumulador
+    // de tracking para L1/bench que llena runToolCall): TIENEN que ser arrays distintos.
+    // Compartirlos causó dos bugs reales el 2026-09-28: iterar el mismo array que crece
+    // (loop infinito + OOM) y serializar entradas de tracking sin `id` (400 de Groq).
+    const modelCalls = msg.tool_calls || [];
+    if (modelCalls.length === 0 || rounds >= maxRounds) break;
 
-    messages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
-    for (const call of toolCalls) {
+    messages.push({ role: "assistant", content: msg.content || "", tool_calls: modelCalls });
+    for (const call of modelCalls) {
       let args = {};
       try {
         args = call.function?.arguments ? JSON.parse(call.function.arguments) : {};

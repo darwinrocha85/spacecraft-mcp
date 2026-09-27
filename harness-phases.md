@@ -36,7 +36,22 @@
   post cayó a LLM (2294 tok, fleet) porque el hit L1 encontró el backend en cold
   start y el fallback funcionó como diseñado; 3 preguntas admin con cold start de
   Render (71s/22s/32s) inflan el avg pero no el p50.
-- Pendiente: sección harness en el portfolio (con estos números). Ojo: 7000 ITPM de Groq → delay entre preguntas.
+- Bugs reales cazados 2026-09-28 (reporte: "enviar serenity al taller" devolvía
+  "No pude obtener esa información"):
+  1. `runGroq` leía `finish_reason` del message (vive en el choice) → undefined ≠
+     "tool_calls" → el loop cortaba en la 1ª vuelta SIEMPRE. Desde que Groq es
+     principal (2026-09-27), NINGUNA tool se ejecutó en prod: toda respuesta fue
+     directa del modelo o fallback. Los números del bench (tokens) siguen valiendo;
+     la calidad no. Fix: se confía en presencia de `tool_calls` + `maxRounds`.
+  2. El tracking `toolCalls` compartía array con los `tool_calls` del modelo:
+     iterar el array que crece = loop infinito + OOM, y serializar entradas de
+     tracking sin `id` = 400 de Groq. Fix: `modelCalls` vs acumulador separados.
+  3. Efecto colateral de (2): `result.toolCalls` de Groq siempre era `[]` → L1
+     nunca aprendió en prod (el hit-rate 0,43 del bench fue solo seeds) y el bench
+     contaba 0 tool-calls. Ahora acumula bien.
+  Verificado con Groq real + stub: 3 tools (list→catalog→impact) y flujo de
+  confirmación correcto. Deployado 2026-09-28 noche, pendiente re-test en prod
+  cuando libere cuota (los probes saturaron los 7000 ITPM).
 - Medición 2026-09-27 (logs prod): cada pregunta gasta ~5.000 input tokens;
   Groq gratis da 7.000 ITPM → 2 preguntas seguidas = 429. El harness no es
   opcional con estos límites: es lo que multiplica las consultas/día.
