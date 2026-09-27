@@ -56,9 +56,12 @@ export function resolveProvider() {
   return raw;
 }
 
-async function runToolCall(tools, name, args, sideChannel) {
+async function runToolCall(tools, name, args, sideChannel, toolCalls) {
   const tool = tools.find((t) => t.name === name);
-  if (!tool) return { error: `Herramienta desconocida: ${name}` };
+  if (!tool) {
+    if (toolCalls) toolCalls.push({ name, ok: false });
+    return { error: `Herramienta desconocida: ${name}` };
+  }
   try {
     const data = await tool.handler(args || {});
     // Side-channel (2026-09-26, Fase 1 del taller): una tool puede marcarse con
@@ -71,8 +74,10 @@ async function runToolCall(tools, name, args, sideChannel) {
     if (sideChannel && tool.structuredType && !data?.error) {
       sideChannel.structured = { type: tool.structuredType, payload: data };
     }
+    if (toolCalls) toolCalls.push({ name, ok: !data?.error, args: args || {} });
     return truncateToolResult(data);
   } catch (err) {
+    if (toolCalls) toolCalls.push({ name, ok: false });
     return { error: err.message };
   }
 }
@@ -95,7 +100,7 @@ function truncateToolResult(data) {
   };
 }
 
-async function runGemini({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel }) {
+async function runGemini({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel, toolCalls }) {
   const genAI = new GoogleGenerativeAI(apiKey);
   const toolsForGemini = [
     {
@@ -140,7 +145,7 @@ async function runGemini({ apiKey, model, systemPrompt, tools, history, question
 
     const responseParts = [];
     for (const call of calls) {
-      const data = await runToolCall(tools, call.name, call.args, sideChannel);
+      const data = await runToolCall(tools, call.name, call.args, sideChannel, toolCalls);
       // La API de Gemini exige que `response` sea un objeto (Struct): si la tool devolvió
       // un array o un primitivo (p. ej. una lista de repuestos), se envuelve en `result`.
       // Sin esto, cualquier tool que devuelva lista falla con 400 en la 2ª vuelta.
@@ -156,10 +161,11 @@ async function runGemini({ apiKey, model, systemPrompt, tools, history, question
     answer: text || "No pude obtener esa información ahora mismo.",
     model,
     usage: response.usageMetadata || undefined,
+    toolCalls,
   };
 }
 
-async function runClaude({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel }) {
+async function runClaude({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel, toolCalls }) {
   const anthropic = new Anthropic({ apiKey });
   // Prompt caching: system + catálogo de tools son idénticos en cada request, así que van
   // con breakpoint de caché (máx 4 por request, acá usamos 2). Historial y pregunta quedan
@@ -204,7 +210,7 @@ async function runClaude({ apiKey, model, systemPrompt, tools, history, question
     const toolResults = [];
     for (const block of response.content) {
       if (block.type !== "tool_use") continue;
-      const data = await runToolCall(tools, block.name, block.input, sideChannel);
+      const data = await runToolCall(tools, block.name, block.input, sideChannel, toolCalls);
       toolResults.push({
         type: "tool_result",
         tool_use_id: block.id,
@@ -225,10 +231,11 @@ async function runClaude({ apiKey, model, systemPrompt, tools, history, question
     answer: text || "No pude obtener esa información ahora mismo.",
     model,
     usage: response.usage || undefined,
+    toolCalls,
   };
 }
 
-async function runGroq({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel }) {
+async function runGroq({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel, toolCalls }) {
   // Groq expone chat completions OpenAI-compatible con function calling: se usa fetch
   // directo (sin SDK nuevo) contra /chat/completions. Los `geminiParameters` son JSON
   // Schema válido y sirven tal cual como `parameters` de cada function.
@@ -290,7 +297,7 @@ async function runGroq({ apiKey, model, systemPrompt, tools, history, question, 
       } catch {
         args = {};
       }
-      const result = await runToolCall(tools, call.function?.name, args, sideChannel);
+      const result = await runToolCall(tools, call.function?.name, args, sideChannel, toolCalls);
       messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
     }
     rounds++;
@@ -302,6 +309,7 @@ async function runGroq({ apiKey, model, systemPrompt, tools, history, question, 
     answer: text || "No pude obtener esa información ahora mismo.",
     model,
     usage: data?.usage || undefined,
+    toolCalls,
   };
 }
 
@@ -337,6 +345,9 @@ export async function runAssistant({
   // corrida en este turno tiene `structuredType`, y se adjunta al resultado final acá abajo.
   // Vive solo durante esta llamada a runAssistant (no hay estado global entre requests).
   const sideChannel = {};
+  // Harness (Fase 2b): lista de tools efectivamente corridas en este turno, para que el
+  // caller pueda aprender mapeos L1 (un solo read → cacheable) sin re-ejecutar nada.
+  const toolCalls = [];
 
   if (provider === "groq") {
     const apiKey = process.env.GROQ_API_KEY;
@@ -344,6 +355,7 @@ export async function runAssistant({
       return {
         mock: true,
         provider,
+        toolCalls,
         answer:
           "[mock sin GROQ_API_KEY, AI_PROVIDER=groq] Configura GROQ_API_KEY en " +
           "esta Function para respuesta real. Pregunta recibida: " +
@@ -352,7 +364,7 @@ export async function runAssistant({
     }
     const model = process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL;
     try {
-      const result = await runGroq({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel });
+      const result = await runGroq({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel, toolCalls });
       return { ...result, provider, structured: sideChannel.structured };
     } catch (err) {
       err.isQuotaError = classifyProviderError(err);
@@ -367,6 +379,7 @@ export async function runAssistant({
       return {
         mock: true,
         provider,
+        toolCalls,
         answer:
           "[mock sin ANTHROPIC_API_KEY, AI_PROVIDER=claude] Configura ANTHROPIC_API_KEY en " +
           "esta Function para respuesta real. Pregunta recibida: " +
@@ -375,7 +388,7 @@ export async function runAssistant({
     }
     const model = process.env.CLAUDE_MODEL || DEFAULT_CLAUDE_MODEL;
     try {
-      const result = await runClaude({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel });
+      const result = await runClaude({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel, toolCalls });
       return { ...result, provider, structured: sideChannel.structured };
     } catch (err) {
       err.isQuotaError = classifyProviderError(err);
@@ -389,6 +402,7 @@ export async function runAssistant({
     return {
       mock: true,
       provider,
+      toolCalls,
       answer:
         "[mock sin GEMINI_API_KEY] Configura GEMINI_API_KEY en esta Function para " +
         "respuesta real con datos en vivo. Pregunta recibida: " +
@@ -397,7 +411,7 @@ export async function runAssistant({
   }
   const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   try {
-    const result = await runGemini({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel });
+    const result = await runGemini({ apiKey, model, systemPrompt, tools, history, question, maxRounds, temperature, maxOutputTokens, sideChannel, toolCalls });
     return { ...result, provider, structured: sideChannel.structured };
   } catch (err) {
     err.isQuotaError = classifyProviderError(err);

@@ -1,0 +1,16 @@
+[
+  { "endpoint": "askAdmin", "question": "lista las naves" },
+  { "endpoint": "askAdmin", "question": "naves con entradas" },
+  { "endpoint": "askAdmin", "question": "resumen general" },
+  { "endpoint": "askAdmin", "question": "qué funciones de teatro hay" },
+  { "endpoint": "askAdmin", "question": "horarios del museo" },
+  { "endpoint": "askAdmin", "question": "catálogo de daños" },
+  { "endpoint": "askAdmin", "question": "qué naves están en el taller" },
+  { "endpoint": "askTaller", "question": "stock" },
+  { "endpoint": "askTaller", "question": "lista de repuestos" },
+  { "endpoint": "askTaller", "question": "reparaciones en taller" },
+  { "endpoint": "askTaller", "question": "mostrame las reparaciones" },
+  { "endpoint": "askTaller", "question": "dame las naves" },
+  { "endpoint": "askTaller", "question": "arma un borrador para una pantalla rota" },
+  { "endpoint": "askTaller", "question": "cuál es el repuesto más caro" }
+]

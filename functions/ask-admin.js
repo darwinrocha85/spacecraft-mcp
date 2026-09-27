@@ -4,6 +4,14 @@ import { NAVESPACE_TOOLS } from "./lib/navespace-tools.js";
 import { runAssistant } from "./lib/ai-provider.js";
 import { sanitizeHistory } from "./lib/chat-utils.js";
 import { buildUsageRecord, saveUsage } from "./lib/usage-store.js";
+import { routeTools } from "./lib/harness-router.js";
+import {
+  isHarnessActive,
+  lookupL1,
+  learnL1,
+  estimateTokensAvoided,
+  formatCachedAnswer,
+} from "./lib/harness-cache.js";
 
 // Backend del asistente embebido en el panel admin (widget del front, ver
 // AdminAssistantWidget.jsx). A diferencia del agente del portfolio (que solo conoce texto
@@ -93,21 +101,98 @@ export const askAdmin = onRequest(
       const startedAt = Date.now();
 
       try {
+        // Harness Fase 2b (solo con HARNESS_PHASE=post-harness): L1 exacto antes del
+        // LLM. Hit = se ejecuta la tool directo (dato fresco), 0 tokens de modelo.
+        if (isHarnessActive()) {
+          const hit = await lookupL1({ endpoint: "askAdmin", question });
+          if (hit) {
+            const cachedTool = NAVESPACE_TOOLS.find((t) => t.name === hit.tool);
+            if (cachedTool) {
+              try {
+                const data = await cachedTool.handler(hit.args || {});
+                const tokensAvoided = estimateTokensAvoided({
+                  systemPrompt: SYSTEM_PROMPT,
+                  fullTools: NAVESPACE_TOOLS,
+                });
+                const cachedResult = {
+                  answer: formatCachedAnswer(hit.tool, data),
+                  provider: "harness-cache",
+                  model: "l1-exact",
+                  cacheHit: true,
+                  cacheLevel: hit.level,
+                  toolCalls: [{ name: hit.tool, ok: true, args: hit.args || {} }],
+                };
+                const hitRecord = buildUsageRecord({
+                  endpoint: "askAdmin",
+                  result: cachedResult,
+                  latencyMs: Date.now() - startedAt,
+                  questionLength: question.length,
+                  historyTurns: history.length,
+                  harness: {
+                    family: hit.family,
+                    fullToolCount: NAVESPACE_TOOLS.length,
+                    subsetToolCount: 1,
+                    cacheHit: true,
+                    cacheLevel: hit.level,
+                    tokensAvoided,
+                  },
+                });
+                console.log(JSON.stringify({ event: "ask_admin_usage", ...hitRecord }));
+                await saveUsage(hitRecord);
+                res.json(cachedResult);
+                return;
+              } catch {
+                // Si la tool del hit falla, se sigue al LLM como un miss normal.
+              }
+            }
+          }
+        }
+
+        // Harness Fase 2 (solo con HARNESS_PHASE=post-harness): el modelo ve solo el
+        // subset de su familia en vez del catálogo completo. En pre-harness va todo.
+        const route = isHarnessActive()
+          ? routeTools({ endpoint: "askAdmin", question, allTools: NAVESPACE_TOOLS })
+          : { family: "full", matched: [], tools: NAVESPACE_TOOLS };
         const result = await runAssistant({
           systemPrompt: SYSTEM_PROMPT,
-          tools: NAVESPACE_TOOLS,
+          tools: route.tools,
           history,
           question,
           maxRounds: MAX_FUNCTION_CALL_ROUNDS,
           temperature: 0.2,
           maxOutputTokens: 800,
         });
+        result.harness = {
+          active: isHarnessActive(),
+          family: route.family,
+          fullToolCount: NAVESPACE_TOOLS.length,
+          subsetToolCount: route.tools.length,
+        };
+        // Aprender L1: el turno usó UNA sola tool de lectura con éxito → ese mapeo
+        // pregunta→{tool,args} vale para la próxima (learnL1 filtra lo no-cacheable).
+        if (result.harness.active && !result.mock && result.toolCalls?.length === 1 && result.toolCalls[0].ok) {
+          await learnL1({
+            endpoint: "askAdmin",
+            question,
+            tool: result.toolCalls[0].name,
+            args: result.toolCalls[0].args,
+            family: route.family,
+          });
+        }
         const record = buildUsageRecord({
           endpoint: "askAdmin",
           result,
           latencyMs: Date.now() - startedAt,
           questionLength: question.length,
           historyTurns: history.length,
+          harness: result.harness.active
+            ? {
+                family: route.family,
+                fullToolCount: NAVESPACE_TOOLS.length,
+                subsetToolCount: route.tools.length,
+                cacheHit: false,
+              }
+            : undefined,
         });
         console.log(JSON.stringify({ event: "ask_admin_usage", ...record }));
         await saveUsage(record);

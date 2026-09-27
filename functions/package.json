@@ -12,7 +12,8 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "bench": "node bench/bench.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",

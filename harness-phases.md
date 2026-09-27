@@ -5,15 +5,43 @@
 > Hay DOS harness (ver sección): local (emulador + backends `:8080`/`:8001`) y
 > web (Firebase + Render + Firestore).
 
-## Estado (2026-09-27, mediodía)
+## Estado (2026-09-27, noche)
 
-- Hecho con código: catálogo MCP en inglés (37 tools), provider `groq`
-  (fetch directo, mismo loop), `usage` normalizado, smoke test OK
-  (`qwen/qwen3.8-27b`, 38 tokens). Cierre de alcance entre chats aplicado.
-- Decisiones: Groq principal local+web (Mistral paga → cuenta eliminada;
-  Ollama descartado), `gemini` fallback ante 429, RTK descartado para el
-  backend (solo comprime salida de terminal dev, no toca system/tools/results).
-- Pendiente: construir los DOS harness (siguiente conversación). Diseño abajo.
+- HECHO harness v1 (código, sin números todavía):
+  - Fase 2 router por familias (`functions/lib/harness-router.js`, Opción B):
+    admin 28→4-12 tools, taller 15→4-7 por request; fallback full si no matchea.
+    Desempate: "nave/naves/flota" genéricos no suman fleet si hay familia específica.
+  - Fase 2b L1 exacto (`functions/lib/harness-cache.js`): pregunta→{tool,args}, la
+    tool se re-ejecuta (dato fresco), 0 tokens LLM en hit. Seeds + aprendizaje de
+    turnos de 1 sola tool; namespaces por endpoint; miss forzado
+    (fresco/hoy/disponibilidad/ventas/saldos); mem + SQLite local (`node:sqlite`,
+    sin deps) + Firestore `ai_cache` en prod. No invalida en escritura a propósito
+    (cachea el mapeo, no los datos).
+  - `runAssistant` reporta `toolCalls[]` (con args); `ai_usage.harness` lleva
+    family/full/subset/cacheHit/cacheLevel/tokensAvoided; respuestas traen
+    `harness{...}` + `toolCalls[]` para el bench.
+  - Bench (`functions/bench/`: questions.json 7+7, bench.mjs → CSV + resumen +
+    `--compare`, `npm run bench`); RTK solo para comprimir logs del bench.
+  - Verificado sin cuota: router (12 preguntas), L1 (seed/learn/aislamiento/TTL),
+    SQLite cross-process, pipeline completo en runtime con stub (hit L1 + miss con
+    router + 400 + fallback). Caza: `usage`/`model` undefined rompían TODOS los
+    docs de hits L1 y mocks en Firestore (misma clase que el bug de budgetDraft).
+- Decisión previa vigente: Groq principal local+web, `gemini` fallback ante 429,
+  RTK descartado para el backend, Ollama descartado.
+- Medición prod 2026-09-27 (bench 14 preguntas fijas en orden, Groq qwen3.8-27b):
+  PRE 56934 tokens (admin 35002, taller 21932) → POST 16344 (admin 10706, taller
+  5638) = **71.3% ahorro**, 14/14 OK, hit-rate L1 0.43 (6 seeds; sube con ai_cache).
+  p50 admin 1310→1136ms, taller 1010→1031ms. CSVs en functions/bench/results-*-prod-*
+  (reservados para la sección harness del portfolio). Detalle: "lista las naves"
+  post cayó a LLM (2294 tok, fleet) porque el hit L1 encontró el backend en cold
+  start y el fallback funcionó como diseñado; 3 preguntas admin con cold start de
+  Render (71s/22s/32s) inflan el avg pero no el p50.
+- Pendiente: sección harness en el portfolio (con estos números). Ojo: 7000 ITPM de Groq → delay entre preguntas.
+- Medición 2026-09-27 (logs prod): cada pregunta gasta ~5.000 input tokens;
+  Groq gratis da 7.000 ITPM → 2 preguntas seguidas = 429. El harness no es
+  opcional con estos límites: es lo que multiplica las consultas/día.
+- Fix deployado 2026-09-27: `usage-store.js` ya no manda `budgetDraft: undefined`
+  (Firestore rechazaba TODOS los docs de `ai_usage`; ahora sí se persisten).
 
 ## Dos harness: local vs web (decisión 2026-09-27)
 

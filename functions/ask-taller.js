@@ -4,6 +4,14 @@ import { TALLER_TOOLS } from "./lib/taller-tools.js";
 import { runAssistant } from "./lib/ai-provider.js";
 import { sanitizeHistory } from "./lib/chat-utils.js";
 import { buildUsageRecord, saveUsage } from "./lib/usage-store.js";
+import { routeTools } from "./lib/harness-router.js";
+import {
+  isHarnessActive,
+  lookupL1,
+  learnL1,
+  estimateTokensAvoided,
+  formatCachedAnswer,
+} from "./lib/harness-cache.js";
 
 // Backend del asistente embebido en spacecraft-taller-frontend (Fase 11). Mismo patrón que
 // ask-admin.js — Cloud Function pública, sin auth, con function-calling contra un catálogo
@@ -55,13 +63,14 @@ const corsHandler = cors({ origin: true });
 const HARNESS_PHASE = process.env.HARNESS_PHASE || "pre-harness";
 void HARNESS_PHASE;
 
-async function logUsage({ result, startedAt, questionLength, historyTurns }) {
+async function logUsage({ result, startedAt, questionLength, historyTurns, harness }) {
   const record = buildUsageRecord({
     endpoint: "askTaller",
     result,
     latencyMs: Date.now() - startedAt,
     questionLength,
     historyTurns,
+    harness,
   });
   console.log(JSON.stringify({ event: "ask_taller_usage", ...record }));
   await saveUsage(record);
@@ -94,16 +103,95 @@ export const askTaller = onRequest(
       const startedAt = Date.now();
 
       try {
+        // Harness Fase 2b (solo con HARNESS_PHASE=post-harness): L1 exacto antes del
+        // LLM. Hit = se ejecuta la tool directo (dato fresco), 0 tokens de modelo.
+        if (isHarnessActive()) {
+          const hit = await lookupL1({ endpoint: "askTaller", question });
+          if (hit) {
+            const cachedTool = TALLER_TOOLS.find((t) => t.name === hit.tool);
+            if (cachedTool) {
+              try {
+                const data = await cachedTool.handler(hit.args || {});
+                const tokensAvoided = estimateTokensAvoided({
+                  systemPrompt: SYSTEM_PROMPT,
+                  fullTools: TALLER_TOOLS,
+                });
+                const cachedResult = {
+                  answer: formatCachedAnswer(hit.tool, data),
+                  provider: "harness-cache",
+                  model: "l1-exact",
+                  cacheHit: true,
+                  cacheLevel: hit.level,
+                  toolCalls: [{ name: hit.tool, ok: true, args: hit.args || {} }],
+                };
+                await logUsage({
+                  result: cachedResult,
+                  startedAt,
+                  questionLength: question.length,
+                  historyTurns: history.length,
+                  harness: {
+                    family: hit.family,
+                    fullToolCount: TALLER_TOOLS.length,
+                    subsetToolCount: 1,
+                    cacheHit: true,
+                    cacheLevel: hit.level,
+                    tokensAvoided,
+                  },
+                });
+                res.json(cachedResult);
+                return;
+              } catch {
+                // Si la tool del hit falla, se sigue al LLM como un miss normal.
+              }
+            }
+          }
+        }
+
+        // Harness Fase 2 (solo con HARNESS_PHASE=post-harness): el modelo ve solo el
+        // subset de su familia en vez del catálogo completo. En pre-harness va todo.
+        const route = isHarnessActive()
+          ? routeTools({ endpoint: "askTaller", question, allTools: TALLER_TOOLS })
+          : { family: "full", matched: [], tools: TALLER_TOOLS };
         const result = await runAssistant({
           systemPrompt: SYSTEM_PROMPT,
-          tools: TALLER_TOOLS,
+          tools: route.tools,
           history,
           question,
           maxRounds: MAX_FUNCTION_CALL_ROUNDS,
           temperature: 0.2,
           maxOutputTokens: 800,
         });
-        await logUsage({ result, startedAt, questionLength: question.length, historyTurns: history.length });
+        result.harness = {
+          active: isHarnessActive(),
+          family: route.family,
+          fullToolCount: TALLER_TOOLS.length,
+          subsetToolCount: route.tools.length,
+        };
+        // Aprender L1: el turno usó UNA sola tool de lectura con éxito → ese mapeo
+        // pregunta→{tool,args} vale para la próxima (learnL1 filtra lo no-cacheable).
+        if (result.harness.active && !result.mock && result.toolCalls?.length === 1 && result.toolCalls[0].ok) {
+          await learnL1({
+            endpoint: "askTaller",
+            question,
+            tool: result.toolCalls[0].name,
+            args: result.toolCalls[0].args,
+            family: route.family,
+          });
+        }
+        await logUsage({
+          result,
+          startedAt,
+          questionLength: question.length,
+          historyTurns: history.length,
+          harness: result.harness.active
+            ? {
+                family: route.family,
+                fullToolCount: TALLER_TOOLS.length,
+                subsetToolCount: route.tools.length,
+                cacheHit: false,
+              }
+            : undefined,
+        });
         res.json(result);
       } catch (err) {
         console.error("ask-taller error", err);

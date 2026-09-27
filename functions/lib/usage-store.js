@@ -37,22 +37,41 @@ function normalizeUsage(usage) {
   return Object.keys(out).length ? out : undefined;
 }
 
-export function buildUsageRecord({ endpoint, result, latencyMs, questionLength, historyTurns }) {
+export function buildUsageRecord({ endpoint, result, latencyMs, questionLength, historyTurns, harness }) {
   const draft =
     result?.structured?.type === "budget_draft" ? result.structured.payload : null;
+  const usage = normalizeUsage(result?.usage);
+  // Harness (Fase 2/2b): solo se incluyen los campos definidos — Firestore rechaza
+  // fields `undefined` (misma lección que budgetDraft).
+  const harnessFields =
+    harness && (harness.family || harness.cacheHit)
+      ? {
+          harness: {
+            ...(harness.family ? { family: harness.family } : {}),
+            ...(harness.fullToolCount !== undefined ? { fullToolCount: harness.fullToolCount } : {}),
+            ...(harness.subsetToolCount !== undefined ? { subsetToolCount: harness.subsetToolCount } : {}),
+            ...(harness.cacheHit !== undefined ? { cacheHit: harness.cacheHit } : {}),
+            ...(harness.cacheLevel ? { cacheLevel: harness.cacheLevel } : {}),
+            ...(harness.tokensAvoided !== undefined ? { tokensAvoided: harness.tokensAvoided } : {}),
+          },
+        }
+      : {};
   return {
     // ts se pisa con serverTimestamp al guardar (el ISO queda para el log).
     ts: new Date().toISOString(),
     harnessPhase: process.env.HARNESS_PHASE || "pre-harness",
     endpoint,
     provider: result?.provider,
-    model: result?.model,
+    // `model` falta en modo mock y `usage` en hits L1 (0 tokens): Firestore rechaza
+    // fields `undefined`, así que van solo si definidos (misma lección que budgetDraft).
+    ...(result?.model !== undefined ? { model: result.model } : {}),
     mock: Boolean(result?.mock),
-    usage: normalizeUsage(result?.usage),
-    usageRaw: result?.usage,
+    ...(usage !== undefined ? { usage } : {}),
+    ...(result?.usage !== undefined ? { usageRaw: result.usage } : {}),
     latencyMs,
     questionLength,
     historyTurns,
+    ...harnessFields,
     // budgetDraft solo cuando hubo borrador: Firestore rechaza fields `undefined` y
     // sin esto NINGÚN documento de askAdmin se persistía (visto en logs de prod).
     ...(draft
