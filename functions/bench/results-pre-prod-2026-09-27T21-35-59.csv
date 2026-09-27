@@ -1,0 +1,8 @@
+rep,endpoint,question,latencyMs,provider,model,family,fullTools,subsetTools,toolCalls,cacheHit,cacheLevel,inputTokens,outputTokens,totalTokens,answerChars,error
+"1","askTaller","stock","1781","groq","qwen/qwen3.8-27b","full","15","15","0","0","","3110","16","3126","44",""
+"1","askTaller","lista de repuestos","945","groq","qwen/qwen3.8-27b","full","15","15","0","0","","3113","16","3129","44",""
+"1","askTaller","reparaciones en taller","1010","groq","qwen/qwen3.8-27b","full","15","15","0","0","","3114","16","3130","44",""
+"1","askTaller","mostrame las reparaciones","969","groq","qwen/qwen3.8-27b","full","15","15","0","0","","3115","16","3131","44",""
+"1","askTaller","dame las naves","1056","groq","qwen/qwen3.8-27b","full","15","15","0","0","","3114","16","3130","44",""
+"1","askTaller","arma un borrador para una pantalla rota","1010","groq","qwen/qwen3.8-27b","full","15","15","0","0","","3117","36","3153","44",""
+"1","askTaller","cuál es el repuesto más caro","931","groq","qwen/qwen3.8-27b","full","15","15","0","0","","3117","16","3133","44",""

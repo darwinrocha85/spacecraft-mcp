@@ -1,0 +1,8 @@
+rep,endpoint,question,latencyMs,provider,model,family,fullTools,subsetTools,toolCalls,cacheHit,cacheLevel,inputTokens,outputTokens,totalTokens,answerChars,error
+"1","askTaller","stock","1931","harness-cache","l1-exact","","","","1","1","L1-seed","0","0","0","224",""
+"1","askTaller","lista de repuestos","656","harness-cache","l1-exact","","","","1","1","L1-seed","0","0","0","224",""
+"1","askTaller","reparaciones en taller","711","harness-cache","l1-exact","","","","1","1","L1-seed","0","0","0","31",""
+"1","askTaller","mostrame las reparaciones","1033","groq","qwen/qwen3.8-27b","shop_state","15","5","0","0","","1689","16","1705","44",""
+"1","askTaller","dame las naves","995","harness-cache","l1-exact","","","","1","1","L1-seed","0","0","0","79",""
+"1","askTaller","arma un borrador para una pantalla rota","1057","groq","qwen/qwen3.8-27b","budget","15","7","0","0","","2176","36","2212","44",""
+"1","askTaller","cuál es el repuesto más caro","1031","groq","qwen/qwen3.8-27b","stock","15","4","0","0","","1705","16","1721","44",""

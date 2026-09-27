@@ -1,0 +1,8 @@
+rep,endpoint,question,latencyMs,provider,model,family,fullTools,subsetTools,toolCalls,cacheHit,cacheLevel,inputTokens,outputTokens,totalTokens,answerChars,error
+"1","askAdmin","lista las naves","2540","groq","qwen/qwen3.8-27b","full","28","28","0","0","","4984","16","5000","44",""
+"1","askAdmin","naves con entradas","1431","groq","qwen/qwen3.8-27b","full","28","28","0","0","","4984","15","4999","44",""
+"1","askAdmin","resumen general","1203","groq","qwen/qwen3.8-27b","full","28","28","0","0","","4983","17","5000","44",""
+"1","askAdmin","qué funciones de teatro hay","1350","groq","qwen/qwen3.8-27b","full","28","28","0","0","","4985","16","5001","44",""
+"1","askAdmin","horarios del museo","1174","groq","qwen/qwen3.8-27b","full","28","28","0","0","","4984","16","5000","44",""
+"1","askAdmin","catálogo de daños","1310","groq","qwen/qwen3.8-27b","full","28","28","0","0","","4984","15","4999","44",""
+"1","askAdmin","qué naves están en el taller","1118","groq","qwen/qwen3.8-27b","full","28","28","0","0","","4987","16","5003","44",""
