@@ -1,7 +1,7 @@
 # spacecraft-mcp — AGENTS.md
 
 > Proyecto independiente. Abrir opencode con cwd en `spacecraft-mcp/`, nunca en `Projects/`.
-> Stack: Cloud Functions for Firebase 2nd gen (Node 20, ESM) — servidor MCP stateless + backends de chat admin/taller con function-calling (Gemini/Claude según `AI_PROVIDER`).
+> Stack: Cloud Functions for Firebase 2nd gen (Node 20, ESM) — servidor MCP stateless + backends de chat admin/taller con function-calling (Groq/Gemini/Claude según `AI_PROVIDER`; default prod `gemini-3.8-flash` vía `GEMINI_MODEL`).
 
 ## Qué vive acá
 - `functions/index.js` → `mcp` (StreamableHTTP stateless, SOLO LECTURA: 20 tools; la
@@ -9,7 +9,7 @@
   (catálogos completos, con confirmación en el SYSTEM_PROMPT).
 - `functions/ask-admin.js` → `askAdmin` (alcance dueño de flota; aprobar presupuestos queda fuera a propósito).
 - `functions/ask-taller.js` → `askTaller` (alcance staff de taller; sin acciones destructivas).
-- `functions/lib/` es la ÚNICA copia: `navespace-tools`, `taller-tools` (reusa por referencia, no duplica), `ai-provider`, `chat-utils`, `damage-matcher`.
+- `functions/lib/` es la ÚNICA copia: `navespace-tools`, `taller-tools` (reusa por referencia, no duplica), `ai-provider` (envuelve arrays en `{result}` para Gemini), `chat-utils`, `damage-matcher`, `usage-store` (documento `ai_usage` por request).
 
 ## Cómo correr
 - `npm.cmd install` en `functions/`, `npm.cmd run serve` → emulador `:5001`.
@@ -29,8 +29,8 @@
   `budgetDraft.resolvedWithoutLlm`. Cambiar la fase con `HARNESS_PHASE=post-harness` en `.env`.
 
 ## Deploy
-- Crear antes el proyecto Firebase `spacecraft-mcp` (consola o `firebase projects:create`) y `firebase.cmd use spacecraft-mcp`.
-- `firebase.cmd deploy --only functions`. Copiar las env vars (`AI_PROVIDER`, claves de Gemini/Claude) desde los proyectos anteriores — nunca commitear `.env`.
+- Proyecto Firebase `spacecraft-mcp` (Blaze, ya creado).
+- `firebase.cmd deploy --only functions`. Las env vars (`AI_PROVIDER`, `GEMINI_MODEL`, claves) salen de `functions/.env` — nunca commitear `.env` (`.env.local` solo local, no viaja).
 
 ## No hacer
 - No duplicar tools: las 6 de lectura del taller se reusan desde `navespace-tools.js` (si cambian ahí, cambian en todos lados).
