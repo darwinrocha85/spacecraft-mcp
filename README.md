@@ -1,64 +1,46 @@
 # spacecraft-mcp
 
-Cloud Functions for Firebase 2nd gen (Node 20, ESM) — servidor MCP stateless (solo
-lectura) + backends de chat admin/taller con function-calling (Gemini/Claude/Groq según
-`AI_PROVIDER`). Ver `AGENTS.md` (cómo correr, deploy, no-hacer) y `harness-phases.md`
-(diseño del harness).
+Servidor MCP + asistentes con IA del ecosistema naveSpace: un solo proyecto de Cloud
+Functions que expone las herramientas una sola vez y las sirve a los chats del panel admin
+y del taller — y a cualquier cliente MCP externo (Claude Desktop, Code...).
 
-## Estructura
+## Qué expone
+| Endpoint | Qué es |
+|---|---|
+| `mcp` | Servidor MCP stateless (StreamableHTTP, sin sesión), **solo lectura**: 20 tools. La escritura se filtra por denylist (`WRITE_TOOL_NAMES`, 17 fuera). |
+| `askAdmin` | Chat del panel admin: opera la flota en vivo (28 tools), pide confirmación antes de impacto real. |
+| `askTaller` | Chat del taller: ciclo de reparación y presupuestos (15 tools, sin destructivas). |
 
-- `functions/index.js` → `mcp` (StreamableHTTP stateless, solo lectura por denylist).
-- `functions/ask-admin.js` → `askAdmin` (dueño de flota; aprobar presupuestos fuera a propósito).
-- `functions/ask-taller.js` → `askTaller` (staff de taller; sin destructivas).
-- `functions/lib/` es la ÚNICA copia: `navespace-tools`, `taller-tools`, `ai-provider`,
-  `chat-utils`, `damage-matcher`, `harness-router`, `harness-cache`, `usage-store`.
+Los frontends ([admin](https://github.com/darwinrocha85/spacecraftSystem-frontend),
+[taller](https://github.com/darwinrocha85/spacecraft-taller-frontend)) son clientes delgados:
+llaman por URL directa, sin `functions/` propia.
 
-## Harness (Fase 2 + 2b, `HARNESS_PHASE=post-harness`)
+## Stack
+Cloud Functions for Firebase 2.ª gen (Node 20, ESM), `@modelcontextprotocol/sdk`,
+Groq/Gemini/Claude según `AI_PROVIDER` (default prod `gemini-3.8-flash` vía `GEMINI_MODEL`),
+Firestore (`ai_usage`: un documento por request con modelo, tokens y latencia, etiquetado
+pre/post-harness vía `HARNESS_PHASE`).
 
-Proveedor-agnóstico: vive antes de `runAssistant`, mismo ahorro en groq/gemini/claude.
-En `pre-harness` (default) el código es inerte — el catálogo completo va al modelo.
+## Cómo correr en local
+```powershell
+cd functions
+npm.cmd install
+Copy-Item .env.example .env   # completar claves reales
+npm.cmd run serve             # solo Functions :5001
+```
+Para persistir uso en local (Firestore `:8085`, requiere Java 21+):
+```powershell
+firebase.cmd emulators:start --only functions,firestore
+```
+Sin emulador de Firestore, el uso va solo al log. Para apuntar a backends locales en vez de
+Render, crear `functions/.env.local` con `NAVESPACE_API_BASE=http://localhost:8080/api` y
+`TALLER_API_BASE=http://localhost:8001/api` (nunca se deploya).
 
-- **Router por familias** (`lib/harness-router.js`): la pregunta matchea por
-  keywords (ES, sin acentos) y el modelo ve solo 4-12 tools en vez de 28 (admin) o 15
-  (taller). Sin match o pregunta ambigua → catálogo completo (fallback seguro).
-- **Caché L1 exacto** (`lib/harness-cache.js`): pregunta normalizada → `{ tool, args }`.
-  En un hit la tool se ejecuta igual (dato fresco), lo que se evita es el LLM
-  (0 tokens). Namespaces por endpoint; solo lectura con args estables; miss forzado
-  ante "fresco/hoy/disponibilidad/ventas/saldos". Niveles: `L1-seed` (frecuentes
-  cableadas), `L1-mem`, `L1-sqlite` (local, `functions/.harness-cache.sqlite`,
-  sin deps nativas vía `node:sqlite`), `L1-firestore` (prod, colección `ai_cache`).
-- **Métricas** en `ai_usage.harness`: `family`, `fullToolCount`, `subsetToolCount`,
-  `cacheHit`, `cacheLevel`, `tokensAvoided`. Cada respuesta trae además
-  `harness{...}` y `toolCalls[]`.
-
-## Bench pre/post
-
-```bash
-# Terminal 1: emulador + Firestore local (backends locales :8080/:8001, sin cold start)
-firebase emulators:start --only functions,firestore
-# Terminal 2, corrida pre (HARNESS_PHASE=pre-harness en functions/.env + restart):
-npm run bench -- --phase=pre
-# Corrida post (HARNESS_PHASE=post-harness + restart):
-npm run bench -- --phase=post --compare=bench/results-pre-<ts>.csv
+## Deploy
+```powershell
+firebase.cmd deploy --only functions   # proyecto spacecraft-mcp (Blaze)
 ```
 
-14 preguntas fijas (`bench/questions.json`, 7 admin + 7 taller). Groq gratis da 7000
-ITPM y cada pregunta pre-harness gasta ~5000 input tokens: el bench espera 8s entre
-preguntas y reintenta un 429 tras 65s. `--repeat=3` para promedio/p50.
-`--verbose ... 2>&1 | rtk` comprime el ida y vuelta para revisión (RTK solo para logs
-del bench: en el backend no toca system/tools/results, su equivalente es la poda a
-6000 chars + este harness).
-
-## Resultados (prod, 2026-09-27, Groq `qwen/qwen3.8-27b`, 14 preguntas fijas en orden)
-
-| fase | tokens totales | latencia p50 | hit-rate L1 |
-|---|---|---|---|
-| pre-harness | 56934 (admin 35002 + taller 21932) | admin 1310ms / taller 1010ms | — |
-| post-harness | 16344 (admin 10706 + taller 5638) | admin 1136ms / taller 1031ms | 0.43 (6/14 seeds; sube con `ai_cache`) |
-
-Ahorro global: **71.3%** (admin 69.4%, taller 74.3%), 14/14 OK en ambas corridas.
-CSV en `functions/bench/results-pre-prod-*` y `results-post-prod-*` (guardados para la
-sección harness del portfolio). Nota: el avg de latencia admin post sale alto por
-cold starts de Render en 3 preguntas (71s/22s/32s); el p50 —lo representativo— mejoró.
-El hit-rate 0.43 es piso: solo cuenta seeds de la primera corrida; los mapeos
-aprendidos quedan en Firestore `ai_cache` y responden 0 tokens desde la segunda vez.
+## Repos relacionados
+Orquestador: [spacecraftSystem](https://github.com/darwinrocha85/spacecraftSystem).
+Taller: [spacecraft-taller-backend](https://github.com/darwinrocha85/spacecraft-taller-backend).
